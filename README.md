@@ -5,6 +5,17 @@
 > **Wichtig:** Der bereitgestellte Quellcode und die Workflows sind eine vollständige Implementierungsvorlage, aber **kein fertig signiertes iOS-Binary**. Für einen tatsächlichen TestFlight-Upload müssen deine eigenen Apple- und Dropbox-Zugänge, das App-Signing und die GitHub-Secrets eingerichtet werden. Auf diesem System konnte kein Xcode-/iPhone-Laufzeittest ausgeführt werden. Vor der Nutzung mit echten Gesundheitsdaten solltest du einen Test mit zwei Geräten und Konfliktfällen durchführen.
 
 ## Funktionen
+## Neue Tagebuch-Oberfläche
+
+- Orangefarbenes TherDia-App-Icon (wird durch `scripts/generate_icon.py` bei iOS-Builds erzeugt), orange Akzente und ein hell- bis mittelgrauer Hintergrund.
+- Beliebig viele Basis-Medikamente in einer Zeile je Medikament mit Bezeichnung und Menge. Das gilt für Ersteinrichtung, Voreinstellungen und Tagebuch.
+- Schulfrage in zwei Schritten: zuerst „War Schule?“, danach Unterrichtsteilnahme und Form.
+- Fünfstufiger Wohlbefindens-Schieberegler auch für Unternehmungen und Begegnungen.
+- Sichtbare Bestätigung nach lokalem Speichern, mit separatem Dropbox-Synchronisationsstatus.
+- Eigenes Menü, direkt aufrufbares Berichtswesen und Datumsauswahl.
+- Alte Einträge mit genau einem Basis-Medikament bleiben durch rückwärtskompatibles Lesen erhalten. Die neue Begegnungsbewertung liegt in einem eigenen Feld, um Mehrgeräte-Konflikte zu minimieren.
+- Bei älteren App-Versionen auf weiteren Geräten möglichst alle Geräte aktualisieren, bevor gemeinsame Tagebuchfelder bearbeitet werden. Zuerst nur mit Testdaten prüfen.
+
 
 - **Tagebuch** nach Datum (heute oder Vergangenheit), Wohlbefinden in fünf Ampelstufen und blaue Markierung bei Notmedikation.
 - **Basis- und Notmedikation** (Art und Menge). Gerätespezifische Voreinstellungen bei Einrichtung bzw. unter Einstellungen; Tageswerte sind änderbar. Für jeden Tagebucheintrag müssen Art und Menge der Basis-Medikation angegeben werden.
