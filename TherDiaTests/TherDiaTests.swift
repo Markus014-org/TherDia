@@ -64,7 +64,7 @@ final class TherDiaTests: XCTestCase {
     }
 
     func testOldSchoolEntryPreservesAttendanceMeaning() throws {
-        let oldSchool = #"{\"attended\":false,\"online\":false,\"inPerson\":false,\"subjects\":\"Hauptfach\"}"#
+        let oldSchool = #"{"attended":false,"online":false,"inPerson":false,"subjects":"Hauptfach"}"#
         let decoded = try XCTUnwrap(DiaryCodec.decode(School.self, oldSchool))
         XCTAssertTrue(decoded.hasSchool)
         XCTAssertFalse(decoded.attended)
