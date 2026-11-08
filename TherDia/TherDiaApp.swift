@@ -1,21 +1,31 @@
 import SwiftUI
 
+enum MainTab: Hashable { case diary, reports, settings, menu }
+
 @main
 struct TherDiaApp: App {
     @StateObject private var model = AppModel()
+    @State private var selectedTab: MainTab = .diary
+    @State private var selectedDate = Date()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             Group {
                 if model.isReady {
-                    TabView {
-                        DiaryEditorView(model: model)
+                    TabView(selection: $selectedTab) {
+                        DiaryEditorView(model: model, selectedDate: $selectedDate, selectedTab: $selectedTab)
+                            .tag(MainTab.diary)
                             .tabItem { Label("Tagebuch", systemImage: "book.closed.fill") }
                         ReportsView(model: model)
+                            .tag(MainTab.reports)
                             .tabItem { Label("Berichte", systemImage: "chart.pie.fill") }
                         SettingsView(model: model)
+                            .tag(MainTab.settings)
                             .tabItem { Label("Einstellungen", systemImage: "gearshape.fill") }
+                        AppMenuView(selectedTab: $selectedTab, selectedDate: $selectedDate, model: model)
+                            .tag(MainTab.menu)
+                            .tabItem { Label("Menü", systemImage: "line.3.horizontal") }
                     }
                 } else {
                     SetupView(model: model)
