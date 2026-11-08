@@ -31,6 +31,7 @@ struct TherDiaApp: App {
                     SetupView(model: model)
                 }
             }
+            .preferredColorScheme(.light)
             .tint(TherDiaTheme.accent)
             .task { await model.bootstrap() }
             .onChange(of: scenePhase) { _, phase in
