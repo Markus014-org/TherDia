@@ -2,7 +2,10 @@ import SwiftUI
 
 struct DiaryEditorView: View {
     @ObservedObject var model: AppModel
-    @State private var selectedDate = Date()
+    @Binding var selectedDate: Date
+    @Binding var selectedTab: MainTab
+    @State private var showDateJump = false
+    @State private var savedMessage = false
     @State private var draft = DayDraft()
     @State private var lastLoaded = DayDraft()
     @State private var peopleEnabled = false
@@ -60,7 +63,21 @@ struct DiaryEditorView: View {
                     }
 
                     SectionCard("Basis-Medikation", subtitle: "Vorausgefüllt aus den Einstellungen, täglich anpassbar") {
-                        medicationFields(name: $draft.baseMedication.name, quantity: $draft.baseMedication.quantity)
+                        ForEach(draft.baseMedication.items.indices, id: \.self) { index in
+                            HStack(alignment: .center, spacing: 6) {
+                                medicationFields(name: $draft.baseMedication.items[index].name,
+                                                 quantity: $draft.baseMedication.items[index].quantity)
+                                Button(role: .destructive) {
+                                    draft.baseMedication.items.remove(at: index)
+                                } label: { Image(systemName: "minus.circle.fill") }
+                                    .accessibilityLabel("Medikament entfernen")
+                            }
+                        }
+                        Button {
+                            draft.baseMedication.items.append(Medication())
+                        } label: {
+                            Label("Medikament hinzufügen", systemImage: "plus.circle.fill")
+                        }
                     }
 
                     SectionCard("Notmedikation") {
@@ -82,8 +99,11 @@ struct DiaryEditorView: View {
                     }
 
                     SectionCard("Schule") {
-                        Toggle("Am Unterricht teilgenommen?", isOn: $draft.school.attended)
-                        if draft.school.attended {
+                        Toggle("War an diesem Tag Schule?", isOn: $draft.school.hasSchool)
+                        if draft.school.hasSchool {
+                            Toggle("Am Unterricht teilgenommen?", isOn: $draft.school.attended)
+                        }
+                        if draft.school.hasSchool && draft.school.attended {
                             Toggle("Online", isOn: $draft.school.online)
                             Toggle("In Präsenz", isOn: $draft.school.inPerson)
                             if draft.school.online || draft.school.inPerson {
@@ -94,7 +114,7 @@ struct DiaryEditorView: View {
                                 }
                             }
                         } else {
-                            Text("Wird gespeichert als: Nicht am Unterricht teilgenommen")
+                            Text(draft.school.hasSchool ? "Wird gespeichert als: Nicht am Unterricht teilgenommen" : "Wird gespeichert als: Kein Schultag")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -118,23 +138,7 @@ struct DiaryEditorView: View {
                                 .lineLimit(2...4).textFieldStyle(.roundedBorder)
                             Toggle("Einfluss auf das Wohlbefinden?", isOn: $draft.outing.affectedWellbeing)
                             if draft.outing.affectedWellbeing {
-                                Picker("Wie war der Einfluss?", selection: $draft.outing.effect) {
-                                    ForEach(Wellbeing.allCases) { quality in
-                                        Text(quality.title).tag(quality)
-                                    }
-                                }
-                                HStack {
-                                    ForEach(Wellbeing.allCases) { value in
-                                        Button { draft.outing.effect = value } label: {
-                                            QualityDot(quality: value, size: 22)
-                                                .padding(6)
-                                                .background(draft.outing.effect == value ? Color.gray.opacity(0.13) : .clear,
-                                                            in: Circle())
-                                        }
-                                        .buttonStyle(.plain)
-                                        .frame(maxWidth: .infinity)
-                                    }
-                                }
+                                WellbeingControl(value: $draft.outing.effect, label: "Einfluss der Unternehmung")
                                 TextField("Zusätzliche Anmerkung (optional)", text: $draft.outing.notes, axis: .vertical)
                                     .lineLimit(2...4).textFieldStyle(.roundedBorder)
                             }
@@ -162,10 +166,26 @@ struct DiaryEditorView: View {
                             Button { draft.people.append("") } label: {
                                 Label("Weiteren Namen hinzufügen", systemImage: "plus.circle")
                             }
+                            Toggle("Einfluss auf das Wohlbefinden?", isOn: $draft.peopleImpact.affectedWellbeing)
+                            if draft.peopleImpact.affectedWellbeing {
+                                WellbeingControl(value: $draft.peopleImpact.effect, label: "Einfluss der Begegnungen")
+                                TextField("Anmerkung (optional)", text: $draft.peopleImpact.notes, axis: .vertical)
+                                    .lineLimit(2...4).textFieldStyle(.roundedBorder)
+                            }
                         }
                     }
 
                     PrimaryAction(title: "Tag speichern", disabled: !model.canEdit) { prepareSave() }
+                    if savedMessage {
+                        Label("Tag lokal gespeichert! " + selectedDate.formatted(date: .abbreviated, time: .omitted) +
+                              " · Dropbox: " + model.syncStatus,
+                              systemImage: "checkmark.circle.fill")
+                            .font(.headline)
+                            .foregroundStyle(TherDiaTheme.ink)
+                            .padding(14)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.green.opacity(0.15), in: RoundedRectangle(cornerRadius: 14))
+                    }
                     HStack(spacing: 7) {
                         Image(systemName: model.connectivity.isConnected ? "checkmark.icloud" : "wifi.slash")
                         Text(model.syncStatus)
@@ -178,10 +198,33 @@ struct DiaryEditorView: View {
             .navigationTitle("Tagebuch")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Menu {
+                        Button("Zu einem Datum springen", systemImage: "calendar") { showDateJump = true }
+                        Button("Berichtswesen", systemImage: "chart.pie") { selectedTab = .reports }
+                        Button("Menü öffnen", systemImage: "line.3.horizontal") { selectedTab = .menu }
+                    } label: { Label("Menü", systemImage: "line.3.horizontal") }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { Task { await model.sync() } } label: { Image(systemName: "arrow.triangle.2.circlepath") }
                         .disabled(model.isSyncing || !model.connected)
                         .accessibilityLabel("Jetzt synchronisieren")
+                }
+            }
+            .sheet(isPresented: $showDateJump) {
+                NavigationStack {
+                    VStack(spacing: 20) {
+                        DatePicker("Datum wählen", selection: $selectedDate, in: ...Date(), displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                        Button("Diesen Tag öffnen") { showDateJump = false }
+                            .buttonStyle(.borderedProminent)
+                        Spacer()
+                    }
+                    .padding(20)
+                    .navigationTitle("Zum Datum springen")
+                    .toolbar { ToolbarItem(placement: .cancellationAction) {
+                        Button("Schließen") { showDateJump = false }
+                    }}
                 }
             }
             .onAppear(perform: loadDay)
@@ -215,6 +258,7 @@ struct DiaryEditorView: View {
                             Button("Überschreiben erlauben") {
                                 showReview = false
                                 model.save(draft, date: selectedDate)
+                                savedMessage = model.errorMessage == nil
                                 lastLoaded = draft
                                 newlySynced = false
                             }.bold()
@@ -227,10 +271,14 @@ struct DiaryEditorView: View {
 
     @ViewBuilder
     private func medicationFields(name: Binding<String>, quantity: Binding<String>) -> some View {
-        TextField("Art / Bezeichnung", text: name)
-            .textFieldStyle(.roundedBorder)
-        TextField("Menge (inkl. Einheit, z. B. mg)", text: quantity)
-            .textFieldStyle(.roundedBorder)
+        HStack(spacing: 8) {
+            TextField("Medikament", text: name)
+                .textFieldStyle(.roundedBorder)
+                .frame(maxWidth: .infinity)
+            TextField("Menge", text: quantity)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 112)
+        }
     }
 
     private func loadDay() {
@@ -239,6 +287,7 @@ struct DiaryEditorView: View {
         lastLoaded = newDraft
         peopleEnabled = !newDraft.people.isEmpty
         newlySynced = false
+        savedMessage = false
     }
 
     private func prepareSave() {
@@ -255,6 +304,7 @@ struct DiaryEditorView: View {
             if changes.contains(where: { $0.oldValue != nil }) { showReview = true }
             else {
                 model.save(normalized, date: selectedDate)
+                savedMessage = model.errorMessage == nil
                 draft = normalized
                 lastLoaded = normalized
                 newlySynced = false
