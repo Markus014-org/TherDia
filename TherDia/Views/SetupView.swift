@@ -10,6 +10,7 @@ struct SetupView: View {
     @State private var showingPassphrase = false
     @State private var baseDefault = Medication()
     @State private var rescueDefault = Medication()
+    @State private var isSubmitting = false
 
     var body: some View {
         NavigationStack {
@@ -86,10 +87,68 @@ struct SetupView: View {
                         TextField("Menge mit Einheit", text: $rescueDefault.quantity).textFieldStyle(.roundedBorder)
                     }
 
-                    PrimaryAction(title: createNew ? "Datenbank sicher anlegen" : "Datenbank öffnen",
-                                  disabled: !model.connected || passphrase.count < 12) {
-                        model.updateDefaults(base: baseDefault, rescue: rescueDefault)
-                        Task { await model.configure(path: path, password: passphrase, createNew: createNew) }
+                    SectionCard("5 · Einrichtung abschließen") {
+                        if !model.connected {
+                            Label("Bitte zuerst Dropbox verbinden und den Einmalcode bestätigen.",
+                                  systemImage: "info.circle.fill")
+                                .foregroundStyle(TherDiaTheme.ink)
+                                .font(.subheadline)
+                        }
+                        if passphrase.count < 12 {
+                            Label("Bitte eine Passphrase mit mindestens 12 Zeichen eingeben.",
+                                  systemImage: "lock.fill")
+                                .foregroundStyle(TherDiaTheme.ink)
+                                .font(.subheadline)
+                        }
+                        if model.connected && passphrase.count >= 12 {
+                            Label("Alle Voraussetzungen erfüllt. Du kannst die Datenbank jetzt öffnen.",
+                                  systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(TherDiaTheme.accent)
+                                .font(.subheadline)
+                        }
+                        Button {
+                            guard !isSubmitting else { return }
+                            guard model.connected else {
+                                model.errorMessage = "Bitte zuerst oben die Dropbox-Anmeldung öffnen und den angezeigten Einmalcode bestätigen."
+                                return
+                            }
+                            guard passphrase.count >= 12 else {
+                                model.errorMessage = "Bitte eine gemeinsame Passphrase mit mindestens 12 Zeichen eingeben."
+                                return
+                            }
+                            guard !baseDefault.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                                  !baseDefault.quantity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                                model.errorMessage = "Bitte die Basis-Medikation mit Bezeichnung und Menge ausfüllen."
+                                return
+                            }
+                            isSubmitting = true
+                            Task {
+                                defer { isSubmitting = false }
+                                await model.configure(path: path, password: passphrase, createNew: createNew)
+                                if model.isReady {
+                                    model.updateDefaults(base: baseDefault, rescue: rescueDefault)
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 10) {
+                                if isSubmitting {
+                                    ProgressView().tint(.white)
+                                } else {
+                                    Image(systemName: createNew ? "lock.shield.fill" : "lock.open.fill")
+                                }
+                                Text(isSubmitting ? "Datenbank wird geöffnet …" :
+                                     (createNew ? "Datenbank sicher anlegen" : "Datenbank öffnen"))
+                                    .font(.headline)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .foregroundStyle(Color.white)
+                            .frame(maxWidth: .infinity, minHeight: 54)
+                            .padding(.horizontal, 12)
+                            .background(TherDiaTheme.accent, in: RoundedRectangle(cornerRadius: 14))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isSubmitting)
+                        .accessibilityHint("Zeigt eine Erklärung, wenn Angaben fehlen. Sonst wird die verschlüsselte Datenbank eingerichtet.")
                     }
                     Text("Die lokalen Daten bleiben verschlüsselt gespeichert. Die Synchronisation erfolgt beim Start, bei Rückkehr in die App und wenn die Internetverbindung zurückkommt.")
                         .font(.footnote).foregroundStyle(.secondary)
