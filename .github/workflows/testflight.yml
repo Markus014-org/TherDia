@@ -5,7 +5,7 @@ permissions:
   contents: read
 jobs:
   release:
-    runs-on: macos-15
+    runs-on: macos-26
     env:
       TEAMID: ${{ secrets.TEAMID }}
       GH_PAT: ${{ secrets.GH_PAT }}
@@ -41,7 +41,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # App Store Connect requires iOS 26 SDK or later.
           xcodebuild -version
+          SDK_MAJOR=$(xcrun --sdk iphoneos --show-sdk-version | cut -d. -f1)
+          if [ "$SDK_MAJOR" -lt 26 ]; then
+            echo "::error::iOS SDK 26 or later required, got $(xcrun --sdk iphoneos --show-sdk-version)"
+            exit 1
+          fi
           xcodegen generate
           xcodebuild -list -project TherDia.xcodeproj
       - name: Prepare signing with existing Fastlane Match setup
