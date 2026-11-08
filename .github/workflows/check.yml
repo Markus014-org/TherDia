@@ -1,0 +1,33 @@
+name: iOS Build Check
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Compile for iOS simulator without signing
+        run: |
+          set -euo pipefail
+          xcodebuild build \
+            -project TherDia.xcodeproj \
+            -scheme TherDia \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee build-check.log
+      - name: Upload compiler log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-build-log
+          path: build-check.log
