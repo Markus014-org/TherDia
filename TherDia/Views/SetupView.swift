@@ -8,7 +8,7 @@ struct SetupView: View {
     @State private var passphrase = ""
     @State private var createNew = true
     @State private var showingPassphrase = false
-    @State private var baseDefault = Medication()
+    @State private var baseDefault = MedicationList()
     @State private var rescueDefault = Medication()
     @State private var isSubmitting = false
 
@@ -80,11 +80,32 @@ struct SetupView: View {
 
                     SectionCard("4 · Medikamenten-Voreinstellungen", subtitle: "Pro Gerät hinterlegen; jeder Tag kann davon abweichen") {
                         Text("Basis-Medikation").font(.subheadline.bold())
-                        TextField("Bezeichnung", text: $baseDefault.name).textFieldStyle(.roundedBorder)
-                        TextField("Menge mit Einheit", text: $baseDefault.quantity).textFieldStyle(.roundedBorder)
+                        ForEach(baseDefault.items.indices, id: \.self) { index in
+                            HStack(spacing: 7) {
+                                TextField("Medikament", text: $baseDefault.items[index].name)
+                                    .textFieldStyle(.roundedBorder)
+                                TextField("Menge", text: $baseDefault.items[index].quantity)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 110)
+                                Button(role: .destructive) {
+                                    baseDefault.items.remove(at: index)
+                                } label: {
+                                    Image(systemName: "minus.circle.fill")
+                                }
+                                .accessibilityLabel("Medikament entfernen")
+                            }
+                        }
+                        Button { baseDefault.items.append(Medication()) } label: {
+                            Label("Weiteres Medikament", systemImage: "plus.circle.fill")
+                        }
                         Text("Notmedikation (optional)").font(.subheadline.bold())
-                        TextField("Bezeichnung", text: $rescueDefault.name).textFieldStyle(.roundedBorder)
-                        TextField("Menge mit Einheit", text: $rescueDefault.quantity).textFieldStyle(.roundedBorder)
+                        HStack(spacing: 8) {
+                            TextField("Medikament", text: $rescueDefault.name)
+                                .textFieldStyle(.roundedBorder)
+                            TextField("Menge", text: $rescueDefault.quantity)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 110)
+                        }
                     }
 
                     SectionCard("5 · Einrichtung abschließen") {
@@ -116,8 +137,11 @@ struct SetupView: View {
                                 model.errorMessage = "Bitte eine gemeinsame Passphrase mit mindestens 12 Zeichen eingeben."
                                 return
                             }
-                            guard !baseDefault.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                                  !baseDefault.quantity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                            guard !baseDefault.items.isEmpty,
+                                  baseDefault.items.allSatisfy({
+                                      !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                                      !$0.quantity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                  }) else {
                                 model.errorMessage = "Bitte die Basis-Medikation mit Bezeichnung und Menge ausfüllen."
                                 return
                             }
