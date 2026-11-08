@@ -3,7 +3,7 @@ import Foundation
 // Per-field revisions make it possible to merge changes on different days (or
 // different questions on one day) without discarding either user's work.
 enum DiaryField: String, CaseIterable, Codable, Identifiable {
-    case wellbeing, baseMedication, rescueMedication, injuries, school, therapy, outing, people
+    case wellbeing, baseMedication, rescueMedication, injuries, school, therapy, outing, people, peopleImpact
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -15,6 +15,7 @@ enum DiaryField: String, CaseIterable, Codable, Identifiable {
         case .therapy: return "Therapie"
         case .outing: return "Unternehmung"
         case .people: return "Begegnungen"
+        case .peopleImpact: return "Einfluss von Begegnungen"
         }
     }
 }
@@ -43,6 +44,37 @@ struct Medication: Codable, Equatable {
     }
 }
 
+// Reads both older single-medication entries and the new multi-medication format.
+struct MedicationList: Codable, Equatable {
+    var items: [Medication] = [Medication()]
+
+    init(items: [Medication] = [Medication()]) { self.items = items }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let list = try? container.decode([Medication].self) {
+            items = list
+        } else {
+            items = [try container.decode(Medication.self)]
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(items)
+    }
+
+    var summary: String {
+        items.map(\.summary).filter { !$0.isEmpty }.joined(separator: ", ")
+    }
+}
+
+struct PeopleImpact: Codable, Equatable {
+    var affectedWellbeing = false
+    var effect: Wellbeing = .fairlyGood
+    var notes = ""
+}
+
 struct RescueMedication: Codable, Equatable {
     var used: Bool = false
     var medication: Medication = Medication()
@@ -61,10 +93,23 @@ enum Subjects: String, Codable, CaseIterable, Identifiable {
 }
 
 struct School: Codable, Equatable {
+    var hasSchool: Bool = false
     var attended: Bool = false
     var online: Bool = false
     var inPerson: Bool = false
     var subjects: Subjects = .main
+
+    enum CodingKeys: String, CodingKey { case hasSchool, attended, online, inPerson, subjects }
+    init() {}
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        // Existing records had no hasSchool question; preserve their meaning.
+        hasSchool = try values.decodeIfPresent(Bool.self, forKey: .hasSchool) ?? true
+        attended = try values.decodeIfPresent(Bool.self, forKey: .attended) ?? false
+        online = try values.decodeIfPresent(Bool.self, forKey: .online) ?? false
+        inPerson = try values.decodeIfPresent(Bool.self, forKey: .inPerson) ?? false
+        subjects = try values.decodeIfPresent(Subjects.self, forKey: .subjects) ?? .main
+    }
 }
 
 enum TherapyType: String, Codable, CaseIterable, Identifiable {
@@ -88,22 +133,26 @@ struct Outing: Codable, Equatable {
 
 struct DayDraft: Equatable {
     var wellbeing: Wellbeing = .fairlyGood
-    var baseMedication = Medication()
+    var baseMedication = MedicationList()
     var rescueMedication = RescueMedication()
     var injuries = Injuries()
     var school = School()
     var therapy = Therapy()
     var outing = Outing()
     var people: [String] = []
+    var peopleImpact = PeopleImpact()
 
     mutating func normalize() {
-        baseMedication.name = baseMedication.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        baseMedication.quantity = baseMedication.quantity.trimmingCharacters(in: .whitespacesAndNewlines)
+        baseMedication.items = baseMedication.items.map {
+            Medication(name: $0.name.trimmingCharacters(in: .whitespacesAndNewlines),
+                       quantity: $0.quantity.trimmingCharacters(in: .whitespacesAndNewlines))
+        }.filter { !$0.name.isEmpty || !$0.quantity.isEmpty }
         rescueMedication.medication.name = rescueMedication.medication.name.trimmingCharacters(in: .whitespacesAndNewlines)
         rescueMedication.medication.quantity = rescueMedication.medication.quantity.trimmingCharacters(in: .whitespacesAndNewlines)
         if !rescueMedication.used { rescueMedication.medication = Medication() }
         injuries.details = injuries.details.trimmingCharacters(in: .whitespacesAndNewlines)
         if !injuries.happened { injuries.details = "" }
+        if !school.hasSchool { school.attended = false }
         if !school.attended { school.online = false; school.inPerson = false }
         if !therapy.scheduled { therapy.participated = false }
         outing.activity = outing.activity.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -113,13 +162,16 @@ struct DayDraft: Equatable {
         var seen: Set<String> = []
         people = people.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty && seen.insert($0.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)).inserted }
+        peopleImpact.notes = peopleImpact.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        if people.isEmpty { peopleImpact = PeopleImpact() }
+        else if !peopleImpact.affectedWellbeing { peopleImpact.notes = "" }
     }
 
     var validationError: String? {
-        if baseMedication.name.isEmpty || baseMedication.quantity.isEmpty {
-            return "Bitte Art und Menge der Basis-Medikation angeben. Die Standardwerte können in den Einstellungen hinterlegt werden."
+        if baseMedication.items.isEmpty || baseMedication.items.contains(where: { $0.name.isEmpty || $0.quantity.isEmpty }) {
+            return "Bitte mindestens ein Basis-Medikament mit Art und Menge angeben."
         }
-        if school.attended && !school.online && !school.inPerson {
+        if school.hasSchool && school.attended && !school.online && !school.inPerson {
             return "Bitte bei einem Schultag mindestens Online oder Präsenz auswählen."
         }
         if rescueMedication.used && (rescueMedication.medication.name.isEmpty || rescueMedication.medication.quantity.isEmpty) {
@@ -193,10 +245,10 @@ enum DiaryCodec {
 }
 
 extension DayRecord {
-    func draft(fallbackBase: Medication = Medication(), fallbackRescue: Medication = Medication()) -> DayDraft {
+    func draft(fallbackBase: MedicationList = MedicationList(), fallbackRescue: Medication = Medication()) -> DayDraft {
         var draft = DayDraft()
         draft.wellbeing = DiaryCodec.decode(Wellbeing.self, field(.wellbeing)?.value) ?? .fairlyGood
-        draft.baseMedication = DiaryCodec.decode(Medication.self, field(.baseMedication)?.value) ?? fallbackBase
+        draft.baseMedication = DiaryCodec.decode(MedicationList.self, field(.baseMedication)?.value) ?? fallbackBase
         draft.rescueMedication = DiaryCodec.decode(RescueMedication.self, field(.rescueMedication)?.value) ?? RescueMedication(used: false, medication: fallbackRescue)
         if !draft.rescueMedication.used { draft.rescueMedication.medication = fallbackRescue }
         draft.injuries = DiaryCodec.decode(Injuries.self, field(.injuries)?.value) ?? Injuries()
@@ -204,6 +256,7 @@ extension DayRecord {
         draft.therapy = DiaryCodec.decode(Therapy.self, field(.therapy)?.value) ?? Therapy()
         draft.outing = DiaryCodec.decode(Outing.self, field(.outing)?.value) ?? Outing()
         draft.people = DiaryCodec.decode([String].self, field(.people)?.value) ?? []
+        draft.peopleImpact = DiaryCodec.decode(PeopleImpact.self, field(.peopleImpact)?.value) ?? PeopleImpact()
         return draft
     }
 }
@@ -218,7 +271,8 @@ extension DayDraft {
             .school: try DiaryCodec.encode(school),
             .therapy: try DiaryCodec.encode(therapy),
             .outing: try DiaryCodec.encode(outing),
-            .people: try DiaryCodec.encode(people)
+            .people: try DiaryCodec.encode(people),
+            .peopleImpact: try DiaryCodec.encode(peopleImpact)
         ]
     }
 }
@@ -229,7 +283,7 @@ enum FieldDescription {
         case .wellbeing:
             return DiaryCodec.decode(Wellbeing.self, json)?.title ?? "Unbekannt"
         case .baseMedication:
-            return DiaryCodec.decode(Medication.self, json)?.summary.nilIfEmpty ?? "Keine Angabe"
+            return DiaryCodec.decode(MedicationList.self, json)?.summary.nilIfEmpty ?? "Keine Angabe"
         case .rescueMedication:
             guard let value = DiaryCodec.decode(RescueMedication.self, json) else { return "Unbekannt" }
             return value.used ? "Ja · \(value.medication.summary)" : "Nein"
@@ -238,6 +292,7 @@ enum FieldDescription {
             return value.happened ? "Ja · \(value.details)" : "Nein"
         case .school:
             guard let value = DiaryCodec.decode(School.self, json) else { return "Unbekannt" }
+            if !value.hasSchool { return "Kein Schultag" }
             if !value.attended { return "Nicht am Unterricht teilgenommen" }
             var types: [String] = []
             if value.online { types.append("online") }
@@ -253,6 +308,9 @@ enum FieldDescription {
                 + (value.notes.isEmpty ? "" : " · \(value.notes)")
         case .people:
             return DiaryCodec.decode([String].self, json)?.joined(separator: ", ").nilIfEmpty ?? "Keine Begegnungen"
+        case .peopleImpact:
+            guard let value = DiaryCodec.decode(PeopleImpact.self, json) else { return "Unbekannt" }
+            return value.affectedWellbeing ? "Einfluss: \(value.effect.title)" + (value.notes.isEmpty ? "" : " · \(value.notes)") : "Kein Einfluss"
         }
     }
 }
