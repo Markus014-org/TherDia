@@ -1,0 +1,48 @@
+name: TherDia - Einrichtung pruefen
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    env:
+      TEAMID: ${{ secrets.TEAMID }}
+      GH_PAT: ${{ secrets.GH_PAT }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
+      FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
+      FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+      DROPBOX_APP_KEY: ${{ vars.DROPBOX_APP_KEY }}
+      BUNDLE_ID: ${{ vars.BUNDLE_ID || 'de.therdia.app' }}
+    steps:
+      - name: Check variables and secret availability (never print values)
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in TEAMID GH_PAT MATCH_PASSWORD FASTLANE_KEY_ID FASTLANE_ISSUER_ID FASTLANE_KEY DROPBOX_APP_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing or inaccessible: $name"
+              missing=1
+            else
+              echo "Available: $name"
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+          if [ "$BUNDLE_ID" != 'de.therdia.app' ]; then
+            echo "::notice::BUNDLE_ID differs from default. Confirm App Store Connect registration matches."
+          fi
+      - name: Check read access to encrypted Match repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            --header "Authorization: Bearer $GH_PAT" \
+            --header 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY_OWNER}/Match-Secrets")
+          if [ "$code" != "200" ]; then
+            echo "::error::GH_PAT cannot read Match-Secrets (HTTP $code). Check token permissions."
+            exit 1
+          fi
+          echo "Match-Secrets accessible"
