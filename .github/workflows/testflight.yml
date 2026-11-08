@@ -37,6 +37,8 @@ jobs:
           brew install xcodegen
           gem install bundler -v 2.7.2
           bundle _2.7.2_ install
+      - name: Generate orange App Icon
+        run: python3 scripts/generate_icon.py
       - name: Configure Xcode and generate project
         shell: bash
         run: |
