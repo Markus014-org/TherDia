@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var model: AppModel
-    @State private var base = Medication()
+    @State private var base = MedicationList()
     @State private var rescue = Medication()
     @State private var showReset = false
     @State private var authCode = ""
@@ -42,15 +42,42 @@ struct SettingsView: View {
                         }
                     }
                     SectionCard("Voreinstellung Basis-Medikation", subtitle: "Auf diesem Gerät verschlüsselt im Schlüsselbund gespeichert") {
-                        TextField("Art", text: $base.name).textFieldStyle(.roundedBorder)
-                        TextField("Menge inkl. Einheit", text: $base.quantity).textFieldStyle(.roundedBorder)
+                        ForEach(base.items.indices, id: \.self) { index in
+                            HStack(spacing: 7) {
+                                TextField("Medikament", text: $base.items[index].name)
+                                    .textFieldStyle(.roundedBorder)
+                                TextField("Menge", text: $base.items[index].quantity)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 110)
+                                Button(role: .destructive) {
+                                    base.items.remove(at: index)
+                                } label: { Image(systemName: "minus.circle.fill") }
+                                .accessibilityLabel("Medikament entfernen")
+                            }
+                        }
+                        Button { base.items.append(Medication()) } label: {
+                            Label("Weiteres Medikament", systemImage: "plus.circle.fill")
+                        }
                     }
                     SectionCard("Voreinstellung Notmedikation") {
-                        TextField("Art", text: $rescue.name).textFieldStyle(.roundedBorder)
-                        TextField("Menge inkl. Einheit", text: $rescue.quantity).textFieldStyle(.roundedBorder)
+                        HStack(spacing: 8) {
+                            TextField("Medikament", text: $rescue.name)
+                                .textFieldStyle(.roundedBorder)
+                            TextField("Menge", text: $rescue.quantity)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 110)
+                        }
                     }
                     PrimaryAction(title: "Voreinstellungen speichern") {
+                        guard !base.items.isEmpty && base.items.allSatisfy({
+                            !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                            !$0.quantity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        }) else {
+                            model.errorMessage = "Bitte bei jedem Basis-Medikament eine Bezeichnung und Menge angeben."
+                            return
+                        }
                         model.updateDefaults(base: base, rescue: rescue)
+                        model.errorMessage = "Medikamenten-Voreinstellungen gespeichert."
                     }
                     SectionCard("Datenschutz & Geräte") {
                         Label("Dropbox und Offline-Cache: AES-256-GCM", systemImage: "lock.shield")
