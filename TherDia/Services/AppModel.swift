@@ -16,7 +16,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var syncStatus = "Noch nicht synchronisiert"
     @Published var errorMessage: String?
     @Published private(set) var conflicts: [SyncConflict] = []
-    @Published private(set) var defaultBase = Medication()
+    @Published private(set) var defaultBase = MedicationList()
     @Published private(set) var defaultRescue = Medication()
     @Published private(set) var lastSync: Date?
 
@@ -43,7 +43,7 @@ final class AppModel: ObservableObject {
         deviceID = id
         dropbox = DropboxClient(appKey: Bundle.main.object(forInfoDictionaryKey: "DropboxAppKey") as? String ?? "")
         if let json = KeychainStore.load("default-base") {
-            defaultBase = DiaryCodec.decode(Medication.self, json) ?? Medication()
+            defaultBase = DiaryCodec.decode(MedicationList.self, json) ?? MedicationList()
         }
         if let json = KeychainStore.load("default-rescue") {
             defaultRescue = DiaryCodec.decode(Medication.self, json) ?? Medication()
@@ -105,7 +105,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func updateDefaults(base: Medication, rescue: Medication) {
+    func updateDefaults(base: MedicationList, rescue: Medication) {
         do {
             try KeychainStore.save(try DiaryCodec.encode(base), for: "default-base")
             try KeychainStore.save(try DiaryCodec.encode(rescue), for: "default-rescue")
@@ -277,7 +277,7 @@ final class AppModel: ObservableObject {
             pendingPlan = nil
             isReady = false
             connected = false
-            defaultBase = Medication()
+            defaultBase = MedicationList()
             defaultRescue = Medication()
             syncStatus = "Gerät zurückgesetzt"
         } catch { errorMessage = error.localizedDescription }
