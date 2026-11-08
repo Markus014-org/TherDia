@@ -74,6 +74,7 @@ struct ReportsView: View {
     @State private var selectedQuality = -1
     @State private var emergencyFilter = "Alle"
     @State private var schoolFilter = "Alle"
+    @State private var schoolDayFilter = "Alle"
     @State private var selectedPerson = "Alle"
     @State private var selectedTherapy = "Alle"
     @State private var selectedInjury = "Alle"
@@ -105,6 +106,8 @@ struct ReportsView: View {
             if selectedQuality >= 0 && day.draft.wellbeing.rawValue != selectedQuality { return false }
             if emergencyFilter == "Ja" && !day.draft.rescueMedication.used { return false }
             if emergencyFilter == "Nein" && day.draft.rescueMedication.used { return false }
+            if schoolDayFilter == "Ja" && !day.draft.school.hasSchool { return false }
+            if schoolDayFilter == "Nein" && day.draft.school.hasSchool { return false }
             if schoolFilter == "Ja" && !day.draft.school.attended { return false }
             if schoolFilter == "Nein" && day.draft.school.attended { return false }
             if selectedPerson != "Alle" && !day.draft.people.contains(where: { $0 == selectedPerson }) { return false }
@@ -152,7 +155,10 @@ struct ReportsView: View {
                         Picker("Notmedikation", selection: $emergencyFilter) {
                             Text("Alle").tag("Alle"); Text("Ja").tag("Ja"); Text("Nein").tag("Nein")
                         }
-                        Picker("Schule", selection: $schoolFilter) {
+                        Picker("Schultag", selection: $schoolDayFilter) {
+                            Text("Alle").tag("Alle"); Text("Ja").tag("Ja"); Text("Nein").tag("Nein")
+                        }
+                        Picker("Unterrichtsteilnahme", selection: $schoolFilter) {
                             Text("Alle").tag("Alle"); Text("Ja").tag("Ja"); Text("Nein").tag("Nein")
                         }
                         Picker("Therapie", selection: $selectedTherapy) {
@@ -174,7 +180,7 @@ struct ReportsView: View {
                             ForEach(names, id: \.self) { name in Text(name).tag(name) }
                         }
                         Button("Filter zurücksetzen") {
-                            selectedQuality = -1; emergencyFilter = "Alle"; schoolFilter = "Alle"
+                            selectedQuality = -1; emergencyFilter = "Alle"; schoolFilter = "Alle"; schoolDayFilter = "Alle"
                             selectedTherapy = "Alle"; selectedInjury = "Alle"; selectedOuting = "Alle"
                             selectedPerson = "Alle"; selectedMedication = "Alle"
                         }.font(.footnote)
