@@ -94,7 +94,7 @@ struct ReportsView: View {
     }
 
     private var medicationNames: [String] {
-        Array(Set(allDays.compactMap { $0.draft.baseMedication.name.nilIfBlank })).sorted()
+        Array(Set(allDays.flatMap { $0.draft.baseMedication.items.compactMap { $0.name.nilIfBlank } })).sorted()
     }
 
     private var filtered: [ReportDay] {
@@ -115,7 +115,7 @@ struct ReportsView: View {
             if selectedInjury == "Nein" && day.draft.injuries.happened { return false }
             if selectedOuting == "Ja" && !day.draft.outing.happened { return false }
             if selectedOuting == "Nein" && day.draft.outing.happened { return false }
-            if selectedMedication != "Alle" && day.draft.baseMedication.name != selectedMedication { return false }
+            if selectedMedication != "Alle" && !day.draft.baseMedication.items.contains(where: { $0.name == selectedMedication }) { return false }
             return true
         }
     }
@@ -246,7 +246,8 @@ struct ReportsView: View {
         } else {
             let count = filtered.count
             let rescueDays = filtered.filter { $0.draft.rescueMedication.used }.count
-            let schoolDays = filtered.filter { $0.draft.school.attended }.count
+            let schoolDays = filtered.filter { $0.draft.school.hasSchool }.count
+            let schoolAttended = filtered.filter { $0.draft.school.hasSchool && $0.draft.school.attended }.count
             let therapyDays = filtered.filter { $0.draft.therapy.scheduled }.count
             let outings = filtered.filter { $0.draft.outing.happened }.count
             let injuries = filtered.filter { $0.draft.injuries.happened }.count
@@ -287,7 +288,8 @@ struct ReportsView: View {
             DistributionCard(title: "Notmedikation", items: yesNo(rescueDays, count: count))
             DistributionCard(title: "Verletzungen", items: yesNo(injuries, count: count))
             DistributionCard(title: "Unterrichtsteilnahme", items: [
-                DistributionItem(name: "Keine Teilnahme", count: count - schoolDays, color: .gray),
+                DistributionItem(name: "Kein Schultag", count: count - schoolDays, color: .gray),
+                DistributionItem(name: "Nicht teilgenommen", count: schoolDays - schoolAttended, color: .brown),
                 DistributionItem(name: "Online", count: filtered.filter { $0.draft.school.attended && $0.draft.school.online && !$0.draft.school.inPerson }.count, color: .teal),
                 DistributionItem(name: "Präsenz", count: filtered.filter { $0.draft.school.attended && !$0.draft.school.online && $0.draft.school.inPerson }.count, color: .blue),
                 DistributionItem(name: "Online & Präsenz", count: filtered.filter { $0.draft.school.attended && $0.draft.school.online && $0.draft.school.inPerson }.count, color: .indigo)
@@ -313,14 +315,21 @@ struct ReportsView: View {
                                  color: TherDiaTheme.quality(quality))
             })
             DistributionCard(title: "Begegnungen außerhalb der Familie", items: yesNo(contacts, count: count))
+            DistributionCard(title: "Einfluss der Begegnungen", items: [
+                DistributionItem(name: "Kein Einfluss", count: filtered.filter { !$0.draft.people.isEmpty && !$0.draft.peopleImpact.affectedWellbeing }.count, color: .gray)
+            ] + Wellbeing.allCases.map { quality in
+                DistributionItem(name: quality.title,
+                    count: filtered.filter { !$0.draft.people.isEmpty && $0.draft.peopleImpact.affectedWellbeing && $0.draft.peopleImpact.effect == quality }.count,
+                    color: TherDiaTheme.quality(quality))
+            })
 
-            let baseMedicationCounts = frequencies(filtered.compactMap { $0.draft.baseMedication.name.nilIfBlank })
+            let baseMedicationCounts = frequencies(filtered.flatMap { $0.draft.baseMedication.items.compactMap { $0.name.nilIfBlank } })
             DistributionCard(title: "Basis-Medikamente (Art)", items: coloredDistribution(baseMedicationCounts))
             let rescueMedicationCounts = frequencies(filtered.filter { $0.draft.rescueMedication.used }
                 .compactMap { $0.draft.rescueMedication.medication.name.nilIfBlank })
             DistributionCard(title: "Notmedikamente (Art)", items: coloredDistribution(rescueMedicationCounts))
             DistributionCard(title: "Basis-Medikation (Art und Menge)", items: coloredDistribution(
-                frequencies(filtered.map { $0.draft.baseMedication.summary }.filter { !$0.isEmpty })
+                frequencies(filtered.flatMap { $0.draft.baseMedication.items.map(\.summary) }.filter { !$0.isEmpty })
             ))
             DistributionCard(title: "Notmedikation (Art und Menge)", items: coloredDistribution(
                 frequencies(filtered.filter { $0.draft.rescueMedication.used }
