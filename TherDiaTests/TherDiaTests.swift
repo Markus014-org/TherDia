@@ -50,4 +50,36 @@ final class TherDiaTests: XCTestCase {
         XCTAssertEqual(try CryptoBox.decrypt(encoded, password: "Lange sichere Passphrase für Test"), sample)
         XCTAssertThrowsError(try CryptoBox.decrypt(encoded, password: "Falsches Passwort"))
     }
+
+    func testOldSingleMedicationDecodesAsList() throws {
+        let old = try DiaryCodec.encode(Medication(name: "Testmedikament", quantity: "10 mg"))
+        let list = try XCTUnwrap(DiaryCodec.decode(MedicationList.self, old))
+        XCTAssertEqual(list.items.count, 1)
+        XCTAssertEqual(list.items[0].quantity, "10 mg")
+        let new = try DiaryCodec.encode(MedicationList(items: [
+            Medication(name: "A", quantity: "5 mg"),
+            Medication(name: "B", quantity: "2 mg")
+        ]))
+        XCTAssertEqual(DiaryCodec.decode(MedicationList.self, new)?.items.count, 2)
+    }
+
+    func testOldSchoolEntryPreservesAttendanceMeaning() throws {
+        let oldSchool = #"{\"attended\":false,\"online\":false,\"inPerson\":false,\"subjects\":\"Hauptfach\"}"#
+        let decoded = try XCTUnwrap(DiaryCodec.decode(School.self, oldSchool))
+        XCTAssertTrue(decoded.hasSchool)
+        XCTAssertFalse(decoded.attended)
+        var empty = School()
+        empty.hasSchool = false
+        let encoded = try DiaryCodec.encode(empty)
+        XCTAssertEqual(DiaryCodec.decode(School.self, encoded)?.hasSchool, false)
+    }
+
+    func testNewEncounterImpactEncodedSeparately() throws {
+        var draft = DayDraft()
+        draft.people = ["Anna"]
+        draft.peopleImpact = PeopleImpact(affectedWellbeing: true, effect: .good, notes: "Gutes Gespräch")
+        let fields = try draft.serializedFields()
+        XCTAssertNotNil(fields[.peopleImpact])
+        XCTAssertEqual(DiaryCodec.decode(PeopleImpact.self, fields[.peopleImpact])?.effect, .good)
+    }
 }
