@@ -1,0 +1,57 @@
+name: TherDia
+options:
+  bundleIdPrefix: de.therdia
+  deploymentTarget:
+    iOS: '17.0'
+  xcodeVersion: '16.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    IPHONEOS_DEPLOYMENT_TARGET: '17.0'
+    MARKETING_VERSION: '1.0.0'
+    CURRENT_PROJECT_VERSION: '1'
+    DROPBOX_APP_KEY: ''
+    CODE_SIGN_STYLE: Automatic
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    TARGETED_DEVICE_FAMILY: '1,2'
+    SUPPORTS_MACCATALYST: 'NO'
+targets:
+  TherDia:
+    type: application
+    platform: iOS
+    sources:
+      - path: TherDia
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.therdia.app
+    info:
+      path: TherDia/Info.plist
+      properties:
+        CFBundleDisplayName: TherDia
+        CFBundleName: TherDia
+        CFBundleDevelopmentRegion: de
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleExecutable: $(EXECUTABLE_NAME)
+        CFBundlePackageType: APPL
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        DropboxAppKey: $(DROPBOX_APP_KEY)
+        UILaunchScreen: {}
+        UIRequiredDeviceCapabilities: [arm64]
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+    scheme:
+      testTargets:
+        - TherDiaTests
+  TherDiaTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: TherDiaTests
+    dependencies:
+      - target: TherDia
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.therdia.app.tests
+        GENERATE_INFOPLIST_FILE: 'YES'
