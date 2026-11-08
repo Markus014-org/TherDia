@@ -1,0 +1,91 @@
+name: TherDia - TestFlight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  release:
+    runs-on: macos-15
+    env:
+      TEAMID: ${{ secrets.TEAMID }}
+      GH_PAT: ${{ secrets.GH_PAT }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
+      FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
+      FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+      APP_IDENTIFIER: ${{ vars.BUNDLE_ID || 'de.therdia.app' }}
+      DROPBOX_APP_KEY: ${{ vars.DROPBOX_APP_KEY }}
+      IPA_PATH: TherDia.ipa
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check signing configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in TEAMID GH_PAT MATCH_PASSWORD FASTLANE_KEY_ID FASTLANE_ISSUER_ID FASTLANE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing Actions secret: $name"
+              exit 1
+            fi
+          done
+          if [ -z "$DROPBOX_APP_KEY" ]; then
+            echo "::error::Missing Actions variable: DROPBOX_APP_KEY"
+            exit 1
+          fi
+      - name: Install dependencies
+        run: |
+          brew install xcodegen
+          gem install bundler -v 2.7.2
+          bundle _2.7.2_ install
+      - name: Configure Xcode and generate project
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcodegen generate
+          xcodebuild -list -project TherDia.xcodeproj
+      - name: Prepare signing with existing Fastlane Match setup
+        run: bundle _2.7.2_ exec fastlane ios prepare_signing
+      - name: Archive signed TherDia app
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild archive \
+            -project TherDia.xcodeproj \
+            -scheme TherDia \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/TherDia.xcarchive" \
+            DEVELOPMENT_TEAM="$TEAMID" \
+            PRODUCT_BUNDLE_IDENTIFIER="$APP_IDENTIFIER" \
+            DROPBOX_APP_KEY="$DROPBOX_APP_KEY" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="match AppStore $APP_IDENTIFIER" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER"
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+          <key>method</key><string>app-store-connect</string>
+          <key>signingStyle</key><string>manual</string>
+          <key>teamID</key><string>$TEAMID</string>
+          <key>provisioningProfiles</key><dict>
+          <key>$APP_IDENTIFIER</key><string>match AppStore $APP_IDENTIFIER</string>
+          </dict></dict></plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/TherDia.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/therdia-export"
+          cp "$RUNNER_TEMP/therdia-export/"*.ipa TherDia.ipa
+      - name: Upload to TestFlight
+        run: bundle _2.7.2_ exec fastlane ios beta
+      - name: Upload archive for troubleshooting
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: therdia-export-diagnostics
+          path: |
+            ~/Library/Logs/gym/
+            ~/Library/Logs/DiagnosticReports/
