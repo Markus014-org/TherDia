@@ -64,9 +64,9 @@ struct PDFReportExportView: View {
 
                     SectionCard("Inhalt des PDF-Berichts", subtitle: "Wähle einzeln die gewünschten Diagramme und Berichtsabschnitte") {
                         HStack {
-                            Button("Alle auswählen") { selected = Set(PDFReportPart.allCases) }
+                            Button("Alle auswählen") { selected = Set(PDFReportPart.allCases); generated = false }
                             Spacer()
-                            Button("Keine auswählen") { selected.removeAll() }
+                            Button("Keine auswählen") { selected.removeAll(); generated = false }
                         }.font(.footnote)
                         ForEach(PDFReportPart.allCases) { part in
                             Toggle(part.rawValue, isOn: Binding(
