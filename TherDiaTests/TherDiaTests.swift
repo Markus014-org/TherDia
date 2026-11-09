@@ -82,4 +82,59 @@ final class TherDiaTests: XCTestCase {
         XCTAssertNotNil(fields[.peopleImpact])
         XCTAssertEqual(DiaryCodec.decode(PeopleImpact.self, fields[.peopleImpact])?.effect, .good)
     }
+    func testTimedEmergencyMedicationAndLegacyWithoutTime() throws {
+        let old = #"{\"used\":true,\"medication\":{\"name\":\"Test\",\"quantity\":\"5 mg\"}}"#
+        let legacy = try XCTUnwrap(DiaryCodec.decode(RescueMedication.self, old))
+        XCTAssertNil(legacy.time)
+        let timed = RescueMedication(used: true, medication: Medication(name: "Test", quantity: "5 mg"), time: "08:30")
+        let json = try DiaryCodec.encode(timed)
+        XCTAssertEqual(DiaryCodec.decode(RescueMedication.self, json)?.time, "08:30")
+    }
+
+    func testBothAggressionCategoriesWithSeparateNotes() throws {
+        var behavior = AggressiveBehavior()
+        behavior.happened = true
+        behavior.selfInjurious = true
+        behavior.otherAggressive = true
+        behavior.selfDescription = "Selbstverletzendes Verhalten"
+        behavior.otherDescription = "Fremdaggressives Verhalten"
+        let json = try DiaryCodec.encode(behavior)
+        let decoded = try XCTUnwrap(DiaryCodec.decode(AggressiveBehavior.self, json))
+        XCTAssertTrue(decoded.selfInjurious)
+        XCTAssertTrue(decoded.otherAggressive)
+        XCTAssertNotEqual(decoded.selfDescription, decoded.otherDescription)
+    }
+
+    func testScreenTimeHalfHourAndOptionalValue() throws {
+        var draft = DayDraft()
+        XCTAssertNil(draft.screenTime.halfHours)
+        draft.screenTime.halfHours = 5
+        XCTAssertEqual(draft.screenTime.hoursText, "2,5 Stunden")
+        let fields = try draft.serializedFields()
+        XCTAssertEqual(DiaryCodec.decode(ScreenTime.self, fields[.screenTime])?.halfHours, 5)
+        draft.screenTime.halfHours = 0
+        XCTAssertEqual(draft.screenTime.hoursText, "0 Stunden")
+    }
+
+    func testOlderInjuryFieldIsNotReclassified() throws {
+        var old = DiaryDatabase()
+        let original = FieldRevision(value: try DiaryCodec.encode(Injuries(happened: true, details: "Alter Eintrag")),
+                                     timestamp: .now, deviceID: "device", changeID: UUID().uuidString)
+        old.days["2026-11-08"] = DayRecord(fields: [DiaryField.injuries.rawValue: original])
+        let record = try XCTUnwrap(old.days["2026-11-08"])
+        let draft = record.draft()
+        XCTAssertFalse(draft.aggression.happened)
+        XCTAssertNil(record.field(.aggression))
+        XCTAssertNil(try draft.serializedFields()[.injuries])
+        XCTAssertNotNil(record.field(.injuries))
+    }
+
+    func testPDFDateRangeDoesNotLeakOtherDays() throws {
+        let a = DayRecord(fields: [DiaryField.wellbeing.rawValue: FieldRevision(value: "0", timestamp: .now, deviceID: "a", changeID: "a")])
+        let database = DiaryDatabase(days: ["2026-11-01": a, "2026-11-02": a])
+        let start = try XCTUnwrap(DiaryCodec.date(from: "2026-11-02"))
+        let selected = PDFReportData.selectedDays(in: database, from: start, through: start)
+        XCTAssertEqual(selected.count, 1)
+    }
+
 }
