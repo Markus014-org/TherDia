@@ -154,3 +154,15 @@ In Xcode unter **Signing & Capabilities** dein Team auswählen, die Bundle ID an
 - [Dropbox: Dateien mit Revisionsschutz hochladen](https://docs.dropboxapi.com/dropbox-api/api-reference/user-endpoints/files/upload)
 - [fastlane: TestFlight / pilot](https://docs.fastlane.tools/actions/pilot/)
 - [Apple: Export-Compliance für Verschlüsselung](https://developer.apple.com/help/app-store-connect/manage-app-information/overview-of-export-compliance/)
+
+
+## Erweiterungen: Notmedikation, Verhalten, Bildschirmzeit und PDF (November 2026)
+
+- **Notmedikation:** Optionale Uhrzeit der Einnahme in 24-Stunden-Darstellung; alte Einträge ohne Zeit bleiben gültig.
+- **Aggressives Verhalten:** Getrennte Schalter für selbstverletzendes und fremdaggressives Verhalten. Bei gleichzeitigem Auftreten können beide Beschreibungsfelder ausgefüllt werden. Die ursprünglichen Verletzungseinträge bleiben als historische Kategorie erhalten und werden niemals stillschweigend umklassifiziert.
+- **Bildschirmzeit:** Neue letzte Tagebuchkategorie; optional 0 bis 24 Stunden in halbstündigen Schritten. Nicht erfasste Tage sind kein Nullwert.
+- **Berichte:** Aktive Filter zeigen ihre Kategorie; hinzugekommen sind gezielte Filter für Art des aggressiven Verhaltens und Bildschirmzeit sowie entsprechende Auswertungen.
+- **PDF:** Unter Berichte → PDF zusammenstellen kann unabhängig vom bisherigen Bildschirmfilter ein Zeitraum gewählt werden. Frei auswählbare Module enthalten Kennzahlen, Verlauf, Kuchendiagramme, Bildschirmzeit-Diagramm, Medikamenten- und Tageslisten. Optionaler Patientenname steht nur im PDF; Personennamen und Freitextnotizen lassen sich separat ein- oder ausschließen. Vorschau per PDFKit, Speichern/Mail/andere Apps über die iOS-Teilen-Funktion.
+- **Datenschutz:** Ein exportiertes PDF ist **nicht verschlüsselt**, enthält unter Umständen sehr sensible Gesundheitsdaten und wird zur Weitergabe vorübergehend im iOS-Temporärverzeichnis abgelegt. Nur an vertrauenswürdige Empfänger teilen; nicht unnötig in ungeschützten Cloud-Ordnern aufbewahren.
+- **Mehrere Geräte:** Alle Geräte sollten auf denselben aktuellen TherDia-Build aktualisiert werden, bevor neue Felder auf anderen Geräten bearbeitet werden. Bei der Weiterentwicklung mit Testdaten beginnen.
+
