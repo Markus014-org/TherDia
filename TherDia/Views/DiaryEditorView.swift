@@ -85,29 +85,27 @@ struct DiaryEditorView: View {
                         if draft.rescueMedication.used {
                             medicationFields(name: $draft.rescueMedication.medication.name,
                                              quantity: $draft.rescueMedication.medication.quantity)
-                            Toggle("Uhrzeit erfassen", isOn: Binding(
-                                get: { draft.rescueMedication.time != nil },
-                                set: { on in
-                                    draft.rescueMedication.time = on ? (draft.rescueMedication.time ?? "12:00") : nil
-                                }
-                            ))
-                            if draft.rescueMedication.time != nil {
-                                DatePicker("Uhrzeit der Einnahme",
-                                    selection: Binding(
-                                        get: {
-                                            let formatter = DateFormatter()
-                                            formatter.dateFormat = "HH:mm"
-                                            return formatter.date(from: draft.rescueMedication.time ?? "") ?? .now
-                                        },
-                                        set: { date in
-                                            let formatter = DateFormatter()
-                                            formatter.dateFormat = "HH:mm"
-                                            draft.rescueMedication.time = formatter.string(from: date)
-                                        }
-                                    ),
-                                    displayedComponents: .hourAndMinute)
-                                    .datePickerStyle(.compact)
+                            HStack(alignment: .firstTextBaseline) {
+                                Text("Uhrzeit der Einnahme")
+                                    .font(.subheadline)
+                                Spacer(minLength: 12)
+                                TextField("HH:mm (optional)", text: Binding(
+                                    get: { draft.rescueMedication.time ?? "" },
+                                    set: { text in
+                                        draft.rescueMedication.time = text.isEmpty ? nil : text
+                                    }
+                                ))
+                                .keyboardType(.numbersAndPunctuation)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .textFieldStyle(.roundedBorder)
+                                .multilineTextAlignment(.center)
+                                .frame(width: 132)
+                                .accessibilityLabel("Uhrzeit der Notmedikation in Stunden und Minuten")
                             }
+                            Text("Optional · Beispiel: 08:30. Nur bei angewendeter Notmedikation.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                             Label("Im Bericht mit blauem Punkt markiert", systemImage: "circle.fill")
                                 .foregroundStyle(.blue).font(.caption)
                         }
