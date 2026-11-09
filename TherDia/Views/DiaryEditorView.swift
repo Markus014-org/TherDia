@@ -85,16 +85,54 @@ struct DiaryEditorView: View {
                         if draft.rescueMedication.used {
                             medicationFields(name: $draft.rescueMedication.medication.name,
                                              quantity: $draft.rescueMedication.medication.quantity)
+                            Toggle("Uhrzeit erfassen", isOn: Binding(
+                                get: { draft.rescueMedication.time != nil },
+                                set: { on in
+                                    draft.rescueMedication.time = on ? (draft.rescueMedication.time ?? "12:00") : nil
+                                }
+                            ))
+                            if draft.rescueMedication.time != nil {
+                                DatePicker("Uhrzeit der Einnahme",
+                                    selection: Binding(
+                                        get: {
+                                            let formatter = DateFormatter()
+                                            formatter.dateFormat = "HH:mm"
+                                            return formatter.date(from: draft.rescueMedication.time ?? "") ?? .now
+                                        },
+                                        set: { date in
+                                            let formatter = DateFormatter()
+                                            formatter.dateFormat = "HH:mm"
+                                            draft.rescueMedication.time = formatter.string(from: date)
+                                        }
+                                    ),
+                                    displayedComponents: .hourAndMinute)
+                                    .datePickerStyle(.compact)
+                            }
                             Label("Im Bericht mit blauem Punkt markiert", systemImage: "circle.fill")
                                 .foregroundStyle(.blue).font(.caption)
                         }
                     }
 
-                    SectionCard("Verletzungen") {
-                        Toggle("Verletzung aufgetreten?", isOn: $draft.injuries.happened)
-                        if draft.injuries.happened {
-                            TextField("Welche Verletzung?", text: $draft.injuries.details, axis: .vertical)
-                                .lineLimit(2...5).textFieldStyle(.roundedBorder)
+                    SectionCard("Aggressives Verhalten") {
+                        Toggle("Aggressives Verhalten aufgetreten?", isOn: $draft.aggression.happened)
+                        if draft.aggression.happened {
+                            Toggle("Selbstverletzend", isOn: $draft.aggression.selfInjurious)
+                            if draft.aggression.selfInjurious {
+                                TextField("Beschreibung selbstverletzendes Verhalten", text: $draft.aggression.selfDescription, axis: .vertical)
+                                    .lineLimit(2...5).textFieldStyle(.roundedBorder)
+                            }
+                            Toggle("Fremdaggressiv", isOn: $draft.aggression.otherAggressive)
+                            if draft.aggression.otherAggressive {
+                                TextField("Beschreibung fremdaggressives Verhalten", text: $draft.aggression.otherDescription, axis: .vertical)
+                                    .lineLimit(2...5).textFieldStyle(.roundedBorder)
+                            }
+                        }
+                    }
+                    if draft.injuries.happened {
+                        SectionCard("Früherer Verletzungseintrag", subtitle: "Historische Angabe – bleibt unverändert gespeichert") {
+                            Text(draft.injuries.details)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
                         }
                     }
 
@@ -172,6 +210,29 @@ struct DiaryEditorView: View {
                                 TextField("Anmerkung (optional)", text: $draft.peopleImpact.notes, axis: .vertical)
                                     .lineLimit(2...4).textFieldStyle(.roundedBorder)
                             }
+                        }
+                    }
+
+                    SectionCard("Bildschirmzeit", subtitle: "Halbstündige Schritte · 0 bis 24 Stunden") {
+                        Toggle("Bildschirmzeit erfassen", isOn: Binding(
+                            get: { draft.screenTime.halfHours != nil },
+                            set: { draft.screenTime.halfHours = $0 ? (draft.screenTime.halfHours ?? 0) : nil }
+                        ))
+                        if draft.screenTime.halfHours != nil {
+                            HStack {
+                                Text(draft.screenTime.hoursText).font(.headline)
+                                Spacer()
+                                Stepper("Halbe Stunden", value: Binding(
+                                    get: { draft.screenTime.halfHours ?? 0 },
+                                    set: { draft.screenTime.halfHours = $0 }
+                                ), in: 0...48, step: 1)
+                                .labelsHidden()
+                            }
+                            Slider(value: Binding(
+                                get: { Double(draft.screenTime.halfHours ?? 0) },
+                                set: { draft.screenTime.halfHours = Int($0.rounded()) }
+                            ), in: 0...48, step: 1)
+                            .accessibilityLabel("Bildschirmzeit in halben Stunden")
                         }
                     }
 
