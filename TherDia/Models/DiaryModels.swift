@@ -201,6 +201,10 @@ struct DayDraft: Equatable {
         }.filter { !$0.name.isEmpty || !$0.quantity.isEmpty }
         rescueMedication.medication.name = rescueMedication.medication.name.trimmingCharacters(in: .whitespacesAndNewlines)
         rescueMedication.medication.quantity = rescueMedication.medication.quantity.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let enteredTime = rescueMedication.time {
+            let cleaned = enteredTime.trimmingCharacters(in: .whitespacesAndNewlines)
+            rescueMedication.time = cleaned.isEmpty ? nil : cleaned
+        }
         if !rescueMedication.used { rescueMedication.medication = Medication(); rescueMedication.time = nil }
         injuries.details = injuries.details.trimmingCharacters(in: .whitespacesAndNewlines)
         if !injuries.happened { injuries.details = "" }
@@ -237,6 +241,17 @@ struct DayDraft: Equatable {
         }
         if rescueMedication.used && (rescueMedication.medication.name.isEmpty || rescueMedication.medication.quantity.isEmpty) {
             return "Bitte Art und Menge der Notmedikation angeben."
+        }
+        if rescueMedication.used, let entered = rescueMedication.time {
+            let parts = entered.split(separator: ":", omittingEmptySubsequences: false)
+            guard parts.count == 2,
+                  parts[0].count == 2, parts[1].count == 2,
+                  parts[0].allSatisfy({ $0.isASCII && $0.isNumber }),
+                  parts[1].allSatisfy({ $0.isASCII && $0.isNumber }),
+                  let hour = Int(parts[0]), let minute = Int(parts[1]),
+                  (0...23).contains(hour), (0...59).contains(minute) else {
+                return "Bitte die Uhrzeit der Notmedikation als HH:mm eingeben (z. B. 08:30) oder das Feld leer lassen."
+            }
         }
         if aggression.happened && !aggression.selfInjurious && !aggression.otherAggressive {
             return "Bitte bei aggressivem Verhalten Selbstverletzend und/oder Fremdaggressiv auswählen."
