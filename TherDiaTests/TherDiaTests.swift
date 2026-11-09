@@ -84,7 +84,7 @@ final class TherDiaTests: XCTestCase {
         XCTAssertEqual(DiaryCodec.decode(PeopleImpact.self, fields[.peopleImpact])?.effect, .good)
     }
     func testTimedEmergencyMedicationAndLegacyWithoutTime() throws {
-        let old = #"{\"used\":true,\"medication\":{\"name\":\"Test\",\"quantity\":\"5 mg\"}}"#
+        let old = #"{"used":true,"medication":{"name":"Test","quantity":"5 mg"}}"#
         let legacy = try XCTUnwrap(DiaryCodec.decode(RescueMedication.self, old))
         XCTAssertNil(legacy.time)
         let timed = RescueMedication(used: true, medication: Medication(name: "Test", quantity: "5 mg"), time: "08:30")
