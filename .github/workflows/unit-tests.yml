@@ -1,0 +1,45 @@
+name: TherDia - iOS Unit Tests
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          python3 scripts/generate_icon.py
+          xcodegen generate
+      - name: Run Swift unit tests on available iPhone simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          UDID=$(xcrun simctl list -j devices available | python3 -c '
+          import json,sys
+          data=json.load(sys.stdin)["devices"]
+          devices=[d for runtime, items in data.items() if "iOS" in runtime
+                   for d in items if d.get("name","").startswith("iPhone")
+                   and d.get("isAvailable",False)]
+          if not devices:
+              raise SystemExit("No available iPhone simulator")
+          print(devices[0]["udid"])
+          ')
+          echo "Using available iPhone simulator"
+          xcodebuild test \
+            -project TherDia.xcodeproj \
+            -scheme TherDia \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=$UDID" \
+            -resultBundlePath "$RUNNER_TEMP/TherDiaTests.xcresult" \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Upload test report if failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: therdia-unit-test-results
+          path: ${{ runner.temp }}/TherDiaTests.xcresult
