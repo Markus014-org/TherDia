@@ -165,4 +165,23 @@ final class TherDiaTests: XCTestCase {
         XCTAssertFalse(text.contains("Tagebucheinträge nach Datum"))
     }
 
+    func testOptionalRescueTimeValidation() {
+        var draft = DayDraft()
+        draft.baseMedication = MedicationList(items: [Medication(name: "Basis", quantity: "5 mg")])
+        draft.rescueMedication = RescueMedication(used: true,
+            medication: Medication(name: "Notmedikament", quantity: "10 mg"), time: nil)
+        draft.normalize()
+        XCTAssertNil(draft.validationError)
+
+        draft.rescueMedication.time = "08:30"
+        XCTAssertNil(draft.validationError)
+        draft.rescueMedication.time = "25:70"
+        XCTAssertNotNil(draft.validationError)
+
+        draft.rescueMedication.time = " "
+        draft.normalize()
+        XCTAssertNil(draft.rescueMedication.time)
+        XCTAssertNil(draft.validationError)
+    }
+
 }
