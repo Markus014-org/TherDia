@@ -29,6 +29,12 @@ struct AppMenuView: View {
                         Button { selectedTab = .settings } label: {
                             Label("Medikamente und Einstellungen", systemImage: "gearshape")
                         }
+                        Divider()
+                        NavigationLink {
+                            InformationView()
+                        } label: {
+                            Label("Information – Anleitung und Datenschutz", systemImage: "info.circle")
+                        }
                     }
                     SectionCard("Synchronisation") {
                         Label(model.syncStatus, systemImage: "externaldrive")
