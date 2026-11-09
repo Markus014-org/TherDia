@@ -77,7 +77,10 @@ struct ReportsView: View {
     @State private var schoolDayFilter = "Alle"
     @State private var selectedPerson = "Alle"
     @State private var selectedTherapy = "Alle"
-    @State private var selectedInjury = "Alle"
+    @State private var selectedAggression = "Alle"
+    @State private var aggressionType = "Alle"
+    @State private var screenTimeFilter = "Alle"
+    @State private var showPDFExport = false
     @State private var selectedOuting = "Alle"
     @State private var selectedMedication = "Alle"
     @State private var visibleFields = Set(DiaryField.allCases)
@@ -98,6 +101,22 @@ struct ReportsView: View {
         Array(Set(allDays.flatMap { $0.draft.baseMedication.items.compactMap { $0.name.nilIfBlank } })).sorted()
     }
 
+    private var activeFilters: [String] {
+        var labels: [String] = []
+        if selectedQuality >= 0 { labels.append("Tagesbefinden: \(Wellbeing(rawValue: selectedQuality)?.title ?? "Alle")") }
+        if emergencyFilter != "Alle" { labels.append("Notmedikation: \(emergencyFilter)") }
+        if schoolDayFilter != "Alle" { labels.append("Schultag: \(schoolDayFilter)") }
+        if schoolFilter != "Alle" { labels.append("Unterrichtsteilnahme: \(schoolFilter)") }
+        if selectedPerson != "Alle" { labels.append("Begegnung mit: \(selectedPerson)") }
+        if selectedTherapy != "Alle" { labels.append("Therapie: \(selectedTherapy)") }
+        if selectedAggression != "Alle" { labels.append("Aggressives Verhalten: \(selectedAggression)") }
+        if aggressionType != "Alle" { labels.append("Art des Verhaltens: \(aggressionType)") }
+        if screenTimeFilter != "Alle" { labels.append("Bildschirmzeit: \(screenTimeFilter)") }
+        if selectedOuting != "Alle" { labels.append("Unternehmungen: \(selectedOuting)") }
+        if selectedMedication != "Alle" { labels.append("Basis-Medikament: \(selectedMedication)") }
+        return labels
+    }
+
     private var filtered: [ReportDay] {
         let from = Calendar.current.startOfDay(for: period == .custom ? startDate : period.start)
         let to = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: period == .custom ? endDate : .now)) ?? .now
@@ -114,8 +133,18 @@ struct ReportsView: View {
             if selectedTherapy == "Keine" && day.draft.therapy.scheduled { return false }
             if selectedTherapy == "KJP" && (!day.draft.therapy.scheduled || day.draft.therapy.kind != .kjp) { return false }
             if selectedTherapy == "ASS" && (!day.draft.therapy.scheduled || day.draft.therapy.kind != .ass) { return false }
-            if selectedInjury == "Ja" && !day.draft.injuries.happened { return false }
-            if selectedInjury == "Nein" && day.draft.injuries.happened { return false }
+            let behaviorRecorded = model.database.days[day.key]?.field(.aggression) != nil
+            if selectedAggression != "Alle" && !behaviorRecorded { return false }
+            if selectedAggression == "Ja" && !day.draft.aggression.happened { return false }
+            if selectedAggression == "Nein" && day.draft.aggression.happened { return false }
+            if aggressionType != "Alle" && !behaviorRecorded { return false }
+            if aggressionType == "Selbstverletzend" && !day.draft.aggression.selfInjurious { return false }
+            if aggressionType == "Fremdaggressiv" && !day.draft.aggression.otherAggressive { return false }
+            if aggressionType == "Beides" && !(day.draft.aggression.selfInjurious && day.draft.aggression.otherAggressive) { return false }
+            if screenTimeFilter == "Erfasst" && day.draft.screenTime.halfHours == nil { return false }
+            if screenTimeFilter == "Nicht erfasst" && day.draft.screenTime.halfHours != nil { return false }
+            if screenTimeFilter == "Mindestens 2 Std." && (day.draft.screenTime.halfHours ?? -1) < 4 { return false }
+            if screenTimeFilter == "Mindestens 4 Std." && (day.draft.screenTime.halfHours ?? -1) < 8 { return false }
             if selectedOuting == "Ja" && !day.draft.outing.happened { return false }
             if selectedOuting == "Nein" && day.draft.outing.happened { return false }
             if selectedMedication != "Alle" && !day.draft.baseMedication.items.contains(where: { $0.name == selectedMedication }) { return false }
@@ -146,6 +175,17 @@ struct ReportsView: View {
                         }
                     }
                     SectionCard("Filter", subtitle: "Alle Filter wirken auch auf die Statistiken") {
+                        if !activeFilters.isEmpty {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("Aktive Filter").font(.subheadline.bold()).foregroundStyle(TherDiaTheme.accent)
+                                ForEach(activeFilters, id: \.self) { selection in
+                                    Label(selection, systemImage: "line.3.horizontal.decrease.circle.fill")
+                                        .font(.subheadline).foregroundStyle(TherDiaTheme.ink)
+                                }
+                            }
+                            .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                            .background(TherDiaTheme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
+                        }
                         Picker("Befinden", selection: $selectedQuality) {
                             Text("Alle").tag(-1)
                             ForEach(Wellbeing.allCases) { value in
@@ -165,8 +205,18 @@ struct ReportsView: View {
                             Text("Alle").tag("Alle"); Text("KJP").tag("KJP")
                             Text("ASS").tag("ASS"); Text("Keine").tag("Keine")
                         }
-                        Picker("Verletzungen", selection: $selectedInjury) {
+                        Picker("Aggressives Verhalten", selection: $selectedAggression) {
                             Text("Alle").tag("Alle"); Text("Ja").tag("Ja"); Text("Nein").tag("Nein")
+                        }
+                        Picker("Art aggressiven Verhaltens", selection: $aggressionType) {
+                            ForEach(["Alle", "Selbstverletzend", "Fremdaggressiv", "Beides"], id: \.self) { value in
+                                Text(value).tag(value)
+                            }
+                        }
+                        Picker("Bildschirmzeit", selection: $screenTimeFilter) {
+                            ForEach(["Alle", "Erfasst", "Nicht erfasst", "Mindestens 2 Std.", "Mindestens 4 Std."], id: \.self) { value in
+                                Text(value).tag(value)
+                            }
                         }
                         Picker("Unternehmungen", selection: $selectedOuting) {
                             Text("Alle").tag("Alle"); Text("Ja").tag("Ja"); Text("Nein").tag("Nein")
@@ -181,11 +231,22 @@ struct ReportsView: View {
                         }
                         Button("Filter zurücksetzen") {
                             selectedQuality = -1; emergencyFilter = "Alle"; schoolFilter = "Alle"; schoolDayFilter = "Alle"
-                            selectedTherapy = "Alle"; selectedInjury = "Alle"; selectedOuting = "Alle"
+                            selectedTherapy = "Alle"; selectedAggression = "Alle"; aggressionType = "Alle"
+                            screenTimeFilter = "Alle"; selectedOuting = "Alle"
                             selectedPerson = "Alle"; selectedMedication = "Alle"
                         }.font(.footnote)
                     }
 
+                    SectionCard("PDF-Bericht erstellen") {
+                        Label("Berichtsteile, Diagramme und Zeitraum wählen; anschließend als PDF teilen.",
+                              systemImage: "doc.richtext")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                        Button {
+                            showPDFExport = true
+                        } label: {
+                            Label("PDF zusammenstellen", systemImage: "square.and.arrow.up")
+                        }.buttonStyle(.borderedProminent)
+                    }
                     SectionCard("\(filtered.count) dokumentierte Tage") {
                         Picker("Ansicht", selection: $showStats) {
                             Text("Statistik").tag(true)
@@ -214,6 +275,9 @@ struct ReportsView: View {
             .background(TherDiaTheme.canvas)
             .navigationTitle("Berichte")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showPDFExport) {
+                PDFReportExportView(database: model.database)
+            }
         }
     }
 
@@ -256,7 +320,9 @@ struct ReportsView: View {
             let schoolAttended = filtered.filter { $0.draft.school.hasSchool && $0.draft.school.attended }.count
             let therapyDays = filtered.filter { $0.draft.therapy.scheduled }.count
             let outings = filtered.filter { $0.draft.outing.happened }.count
-            let injuries = filtered.filter { $0.draft.injuries.happened }.count
+            let recordedBehavior = filtered.filter { model.database.days[$0.key]?.field(.aggression) != nil }
+            let aggressiveCount = recordedBehavior.filter { $0.draft.aggression.happened }.count
+            let screenTimes = filtered.compactMap { $0.draft.screenTime.halfHours }
             let contacts = filtered.filter { !$0.draft.people.isEmpty }.count
 
             SectionCard("Kennzahlen") {
@@ -292,7 +358,25 @@ struct ReportsView: View {
                                  color: TherDiaTheme.quality(quality))
             })
             DistributionCard(title: "Notmedikation", items: yesNo(rescueDays, count: count))
-            DistributionCard(title: "Verletzungen", items: yesNo(injuries, count: count))
+            DistributionCard(title: "Aggressives Verhalten", items: [
+                DistributionItem(name: "Nein", count: recordedBehavior.count - aggressiveCount, color: .gray),
+                DistributionItem(name: "Selbstverletzend", count: recordedBehavior.filter { $0.draft.aggression.selfInjurious && !$0.draft.aggression.otherAggressive }.count, color: .orange),
+                DistributionItem(name: "Fremdaggressiv", count: recordedBehavior.filter { !$0.draft.aggression.selfInjurious && $0.draft.aggression.otherAggressive }.count, color: .red),
+                DistributionItem(name: "Beides", count: recordedBehavior.filter { $0.draft.aggression.selfInjurious && $0.draft.aggression.otherAggressive }.count, color: .purple)
+            ])
+            SectionCard("Bildschirmzeit", subtitle: "Nur Tage mit erfasster Bildschirmzeit") {
+                if screenTimes.isEmpty {
+                    Text("Keine Bildschirmzeit erfasst").foregroundStyle(.secondary)
+                } else {
+                    let average = Double(screenTimes.reduce(0,+)) / Double(screenTimes.count) / 2
+                    Text("Durchschnitt: \(average.formatted(.number.precision(.fractionLength(1)))) Stunden").font(.headline)
+                    Chart(filtered.filter { $0.draft.screenTime.halfHours != nil }.sorted { $0.date < $1.date }) { day in
+                        BarMark(x: .value("Tag", day.date),
+                                y: .value("Stunden", Double(day.draft.screenTime.halfHours ?? 0) / 2))
+                            .foregroundStyle(TherDiaTheme.accent)
+                    }.frame(height: 190)
+                }
+            }
             DistributionCard(title: "Unterrichtsteilnahme", items: [
                 DistributionItem(name: "Kein Schultag", count: count - schoolDays, color: .gray),
                 DistributionItem(name: "Nicht teilgenommen", count: schoolDays - schoolAttended, color: .brown),
@@ -357,11 +441,21 @@ struct ReportsView: View {
                     }
                 }
             }
-            SectionCard("Dokumentierte Verletzungen") {
-                let notes = filtered.filter { $0.draft.injuries.happened }
-                if notes.isEmpty { Text("Keine Verletzungen erfasst").foregroundStyle(.secondary) }
+            SectionCard("Dokumentiertes aggressives Verhalten") {
+                let notes = filtered.filter { $0.draft.aggression.happened }
+                if notes.isEmpty { Text("Kein aggressives Verhalten dokumentiert").foregroundStyle(.secondary) }
                 else {
                     ForEach(notes) { item in
+                        VStack(alignment: .leading) {
+                            Text(item.date.formatted(date: .abbreviated, time: .omitted)).font(.caption.bold())
+                            Text(item.draft.aggression.summary).font(.subheadline)
+                        }
+                    }
+                }
+            }
+            if filtered.contains(where: { $0.draft.injuries.happened }) {
+                SectionCard("Ältere Verletzungseinträge", subtitle: "Nicht als aggressives Verhalten umgedeutet") {
+                    ForEach(filtered.filter { $0.draft.injuries.happened }) { item in
                         Text("\(item.date.formatted(date: .abbreviated, time: .omitted)): \(item.draft.injuries.details)")
                             .font(.subheadline)
                     }
