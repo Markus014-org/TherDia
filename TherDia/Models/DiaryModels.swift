@@ -3,19 +3,21 @@ import Foundation
 // Per-field revisions make it possible to merge changes on different days (or
 // different questions on one day) without discarding either user's work.
 enum DiaryField: String, CaseIterable, Codable, Identifiable {
-    case wellbeing, baseMedication, rescueMedication, injuries, school, therapy, outing, people, peopleImpact
+    case wellbeing, baseMedication, rescueMedication, injuries, school, therapy, outing, people, peopleImpact, aggression, screenTime
     var id: String { rawValue }
     var title: String {
         switch self {
         case .wellbeing: return "Tagesbefinden"
         case .baseMedication: return "Basis-Medikation"
         case .rescueMedication: return "Notmedikation"
-        case .injuries: return "Verletzungen"
+        case .injuries: return "Verletzungen (ältere Einträge)"
         case .school: return "Schule"
         case .therapy: return "Therapie"
         case .outing: return "Unternehmung"
         case .people: return "Begegnungen"
         case .peopleImpact: return "Einfluss von Begegnungen"
+        case .aggression: return "Aggressives Verhalten"
+        case .screenTime: return "Bildschirmzeit"
         }
     }
 }
@@ -78,6 +80,54 @@ struct PeopleImpact: Codable, Equatable {
 struct RescueMedication: Codable, Equatable {
     var used: Bool = false
     var medication: Medication = Medication()
+    // Optional local time as HH:mm; old Dropbox entries without time still decode.
+    var time: String? = nil
+
+    init(used: Bool = false, medication: Medication = Medication(), time: String? = nil) {
+        self.used = used
+        self.medication = medication
+        self.time = time
+    }
+
+    enum CodingKeys: String, CodingKey { case used, medication, time }
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        used = try values.decodeIfPresent(Bool.self, forKey: .used) ?? false
+        medication = try values.decodeIfPresent(Medication.self, forKey: .medication) ?? Medication()
+        time = try values.decodeIfPresent(String.self, forKey: .time)
+    }
+
+    var summary: String {
+        used ? (medication.summary + (time.map { " · \($0) Uhr" } ?? "")) : "Nein"
+    }
+}
+
+/// Kept separate from legacy 'injuries' records so earlier injury notes are never
+/// silently reinterpreted as aggressive behavior.
+struct AggressiveBehavior: Codable, Equatable {
+    var happened = false
+    var selfInjurious = false
+    var selfDescription = ""
+    var otherAggressive = false
+    var otherDescription = ""
+
+    var summary: String {
+        guard happened else { return "Nein" }
+        var details: [String] = []
+        if selfInjurious { details.append("Selbstverletzend" + (selfDescription.isEmpty ? "" : ": " + selfDescription)) }
+        if otherAggressive { details.append("Fremdaggressiv" + (otherDescription.isEmpty ? "" : ": " + otherDescription)) }
+        return details.isEmpty ? "Ja" : details.joined(separator: " · ")
+    }
+}
+
+struct ScreenTime: Codable, Equatable {
+    // nil means not reported. Increments of one half-hour; 0 is a valid value.
+    var halfHours: Int? = nil
+    var hoursText: String {
+        guard let halfHours else { return "Nicht erfasst" }
+        let hours = halfHours / 2
+        return "\(hours)" + (halfHours.isMultiple(of: 2) ? "" : ",5") + " Stunden"
+    }
 }
 
 struct Injuries: Codable, Equatable {
@@ -141,6 +191,8 @@ struct DayDraft: Equatable {
     var outing = Outing()
     var people: [String] = []
     var peopleImpact = PeopleImpact()
+    var aggression = AggressiveBehavior()
+    var screenTime = ScreenTime()
 
     mutating func normalize() {
         baseMedication.items = baseMedication.items.map {
@@ -149,9 +201,18 @@ struct DayDraft: Equatable {
         }.filter { !$0.name.isEmpty || !$0.quantity.isEmpty }
         rescueMedication.medication.name = rescueMedication.medication.name.trimmingCharacters(in: .whitespacesAndNewlines)
         rescueMedication.medication.quantity = rescueMedication.medication.quantity.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !rescueMedication.used { rescueMedication.medication = Medication() }
+        if !rescueMedication.used { rescueMedication.medication = Medication(); rescueMedication.time = nil }
         injuries.details = injuries.details.trimmingCharacters(in: .whitespacesAndNewlines)
         if !injuries.happened { injuries.details = "" }
+        if !aggression.happened {
+            aggression = AggressiveBehavior()
+        } else {
+            aggression.selfDescription = aggression.selfDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+            aggression.otherDescription = aggression.otherDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !aggression.selfInjurious { aggression.selfDescription = "" }
+            if !aggression.otherAggressive { aggression.otherDescription = "" }
+        }
+        if let value = screenTime.halfHours { screenTime.halfHours = min(48, max(0, value)) }
         if !school.hasSchool { school.attended = false }
         if !school.attended { school.online = false; school.inPerson = false }
         if !therapy.scheduled { therapy.participated = false }
@@ -177,8 +238,8 @@ struct DayDraft: Equatable {
         if rescueMedication.used && (rescueMedication.medication.name.isEmpty || rescueMedication.medication.quantity.isEmpty) {
             return "Bitte Art und Menge der Notmedikation angeben."
         }
-        if injuries.happened && injuries.details.isEmpty {
-            return "Bitte die Verletzung beschreiben."
+        if aggression.happened && !aggression.selfInjurious && !aggression.otherAggressive {
+            return "Bitte bei aggressivem Verhalten Selbstverletzend und/oder Fremdaggressiv auswählen."
         }
         if outing.happened && outing.activity.isEmpty {
             return "Bitte die Unternehmung beschreiben."
@@ -257,6 +318,8 @@ extension DayRecord {
         draft.outing = DiaryCodec.decode(Outing.self, field(.outing)?.value) ?? Outing()
         draft.people = DiaryCodec.decode([String].self, field(.people)?.value) ?? []
         draft.peopleImpact = DiaryCodec.decode(PeopleImpact.self, field(.peopleImpact)?.value) ?? PeopleImpact()
+        draft.aggression = DiaryCodec.decode(AggressiveBehavior.self, field(.aggression)?.value) ?? AggressiveBehavior()
+        draft.screenTime = DiaryCodec.decode(ScreenTime.self, field(.screenTime)?.value) ?? ScreenTime()
         return draft
     }
 }
@@ -267,7 +330,9 @@ extension DayDraft {
             .wellbeing: try DiaryCodec.encode(wellbeing),
             .baseMedication: try DiaryCodec.encode(baseMedication),
             .rescueMedication: try DiaryCodec.encode(rescueMedication),
-            .injuries: try DiaryCodec.encode(injuries),
+            // Legacy .injuries is read-only: do not create or rewrite old notes as aggression.
+            .aggression: try DiaryCodec.encode(aggression),
+            .screenTime: try DiaryCodec.encode(screenTime),
             .school: try DiaryCodec.encode(school),
             .therapy: try DiaryCodec.encode(therapy),
             .outing: try DiaryCodec.encode(outing),
@@ -286,7 +351,7 @@ enum FieldDescription {
             return DiaryCodec.decode(MedicationList.self, json)?.summary.nilIfEmpty ?? "Keine Angabe"
         case .rescueMedication:
             guard let value = DiaryCodec.decode(RescueMedication.self, json) else { return "Unbekannt" }
-            return value.used ? "Ja · \(value.medication.summary)" : "Nein"
+            return value.used ? "Ja · \(value.summary)" : "Nein"
         case .injuries:
             guard let value = DiaryCodec.decode(Injuries.self, json) else { return "Unbekannt" }
             return value.happened ? "Ja · \(value.details)" : "Nein"
@@ -311,6 +376,10 @@ enum FieldDescription {
         case .peopleImpact:
             guard let value = DiaryCodec.decode(PeopleImpact.self, json) else { return "Unbekannt" }
             return value.affectedWellbeing ? "Einfluss: \(value.effect.title)" + (value.notes.isEmpty ? "" : " · \(value.notes)") : "Kein Einfluss"
+        case .aggression:
+            return DiaryCodec.decode(AggressiveBehavior.self, json)?.summary ?? "Unbekannt"
+        case .screenTime:
+            return DiaryCodec.decode(ScreenTime.self, json)?.hoursText ?? "Nicht erfasst"
         }
     }
 }
