@@ -66,6 +66,31 @@ private struct DistributionCard: View {
     }
 }
 
+private struct ReportFilterRow<Content: View>: View {
+    let description: String
+    let content: Content
+
+    init(_ description: String, @ViewBuilder content: () -> Content) {
+        self.description = description
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            content
+            Text(description)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isStaticText)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(TherDiaTheme.canvas.opacity(0.48), in: RoundedRectangle(cornerRadius: 12))
+    }
+}
+
 struct ReportsView: View {
     @ObservedObject var model: AppModel
     @State private var period: ReportPeriod = .month
@@ -186,49 +211,86 @@ struct ReportsView: View {
                             .padding(10).frame(maxWidth: .infinity, alignment: .leading)
                             .background(TherDiaTheme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
                         }
-                        Picker("Befinden", selection: $selectedQuality) {
-                            Text("Alle").tag(-1)
-                            ForEach(Wellbeing.allCases) { value in
-                                Text(value.title).tag(value.rawValue)
+                        Text("Du kannst mehrere Filter kombinieren. Angezeigt werden nur Tage, die alle gewählten Bedingungen erfüllen. „Alle“ schränkt die jeweilige Kategorie nicht ein.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+
+                        ReportFilterRow("Zeigt nur Tage mit der ausgewählten Bewertung des Wohlbefindens.") {
+                            Picker("Tagesbefinden", selection: $selectedQuality) {
+                                Text("Alle").tag(-1)
+                                ForEach(Wellbeing.allCases) { value in
+                                    Text(value.title).tag(value.rawValue)
+                                }
                             }
                         }
-                        Picker("Notmedikation", selection: $emergencyFilter) {
-                            Text("Alle").tag("Alle"); Text("Ja").tag("Ja"); Text("Nein").tag("Nein")
-                        }
-                        Picker("Schultag", selection: $schoolDayFilter) {
-                            Text("Alle").tag("Alle"); Text("Ja").tag("Ja"); Text("Nein").tag("Nein")
-                        }
-                        Picker("Unterrichtsteilnahme", selection: $schoolFilter) {
-                            Text("Alle").tag("Alle"); Text("Ja").tag("Ja"); Text("Nein").tag("Nein")
-                        }
-                        Picker("Therapie", selection: $selectedTherapy) {
-                            Text("Alle").tag("Alle"); Text("KJP").tag("KJP")
-                            Text("ASS").tag("ASS"); Text("Keine").tag("Keine")
-                        }
-                        Picker("Aggressives Verhalten", selection: $selectedAggression) {
-                            Text("Alle").tag("Alle"); Text("Ja").tag("Ja"); Text("Nein").tag("Nein")
-                        }
-                        Picker("Art aggressiven Verhaltens", selection: $aggressionType) {
-                            ForEach(["Alle", "Selbstverletzend", "Fremdaggressiv", "Beides"], id: \.self) { value in
-                                Text(value).tag(value)
+
+                        ReportFilterRow("Zeigt Tage, an denen Notmedikation angewendet wurde oder nicht.") {
+                            Picker("Notmedikation", selection: $emergencyFilter) {
+                                Text("Alle").tag("Alle"); Text("Ja").tag("Ja"); Text("Nein").tag("Nein")
                             }
                         }
-                        Picker("Bildschirmzeit", selection: $screenTimeFilter) {
-                            ForEach(["Alle", "Erfasst", "Nicht erfasst", "Mindestens 2 Std.", "Mindestens 4 Std."], id: \.self) { value in
-                                Text(value).tag(value)
+
+                        ReportFilterRow("Unterscheidet zwischen Tagen mit und ohne Schule.") {
+                            Picker("Schultag", selection: $schoolDayFilter) {
+                                Text("Alle").tag("Alle"); Text("Ja").tag("Ja"); Text("Nein").tag("Nein")
                             }
                         }
-                        Picker("Unternehmungen", selection: $selectedOuting) {
-                            Text("Alle").tag("Alle"); Text("Ja").tag("Ja"); Text("Nein").tag("Nein")
+
+                        ReportFilterRow("Zeigt, ob am Unterricht teilgenommen wurde.") {
+                            Picker("Unterrichtsteilnahme", selection: $schoolFilter) {
+                                Text("Alle").tag("Alle"); Text("Ja").tag("Ja"); Text("Nein").tag("Nein")
+                            }
                         }
-                        Picker("Basis-Medikament", selection: $selectedMedication) {
-                            Text("Alle").tag("Alle")
-                            ForEach(medicationNames, id: \.self) { name in Text(name).tag(name) }
+
+                        ReportFilterRow("Filtert nach KJP, ASS oder Tagen ohne Therapie.") {
+                            Picker("Therapie", selection: $selectedTherapy) {
+                                Text("Alle").tag("Alle"); Text("KJP").tag("KJP")
+                                Text("ASS").tag("ASS"); Text("Keine").tag("Keine")
+                            }
                         }
-                        Picker("Begegnung mit", selection: $selectedPerson) {
-                            Text("Alle").tag("Alle")
-                            ForEach(names, id: \.self) { name in Text(name).tag(name) }
+
+                        ReportFilterRow("Filtert Tage mit oder ohne dokumentiertes aggressives Verhalten.") {
+                            Picker("Aggressives Verhalten", selection: $selectedAggression) {
+                                Text("Alle").tag("Alle"); Text("Ja").tag("Ja"); Text("Nein").tag("Nein")
+                            }
                         }
+
+                        ReportFilterRow("Zeigt selbstverletzendes, fremdaggressives oder beide Verhaltensarten.") {
+                            Picker("Art aggressiven Verhaltens", selection: $aggressionType) {
+                                ForEach(["Alle", "Selbstverletzend", "Fremdaggressiv", "Beides"], id: \.self) { value in
+                                    Text(value).tag(value)
+                                }
+                            }
+                        }
+
+                        ReportFilterRow("Filtert nach erfasster Bildschirmzeit oder einer Mindestdauer.") {
+                            Picker("Bildschirmzeit", selection: $screenTimeFilter) {
+                                ForEach(["Alle", "Erfasst", "Nicht erfasst", "Mindestens 2 Std.", "Mindestens 4 Std."], id: \.self) { value in
+                                    Text(value).tag(value)
+                                }
+                            }
+                        }
+
+                        ReportFilterRow("Zeigt Tage mit oder ohne Unternehmungen.") {
+                            Picker("Unternehmungen", selection: $selectedOuting) {
+                                Text("Alle").tag("Alle"); Text("Ja").tag("Ja"); Text("Nein").tag("Nein")
+                            }
+                        }
+
+                        ReportFilterRow("Zeigt Tage, an denen das ausgewählte Medikament eingetragen wurde.") {
+                            Picker("Basis-Medikament", selection: $selectedMedication) {
+                                Text("Alle").tag("Alle")
+                                ForEach(medicationNames, id: \.self) { name in Text(name).tag(name) }
+                            }
+                        }
+
+                        ReportFilterRow("Zeigt Tage, an denen die ausgewählte Person getroffen wurde.") {
+                            Picker("Begegnung mit", selection: $selectedPerson) {
+                                Text("Alle").tag("Alle")
+                                ForEach(names, id: \.self) { name in Text(name).tag(name) }
+                            }
+                        }
+
                         Button("Filter zurücksetzen") {
                             selectedQuality = -1; emergencyFilter = "Alle"; schoolFilter = "Alle"; schoolDayFilter = "Alle"
                             selectedTherapy = "Alle"; selectedAggression = "Alle"; aggressionType = "Alle"
