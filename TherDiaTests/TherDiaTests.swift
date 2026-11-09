@@ -1,4 +1,5 @@
 import XCTest
+import PDFKit
 @testable import TherDia
 
 final class TherDiaTests: XCTestCase {
@@ -135,6 +136,33 @@ final class TherDiaTests: XCTestCase {
         let start = try XCTUnwrap(DiaryCodec.date(from: "2026-11-02"))
         let selected = PDFReportData.selectedDays(in: database, from: start, through: start)
         XCTAssertEqual(selected.count, 1)
+    }
+
+    func testGeneratedPDFHasHeaderSelectedPartsAndNoUnselectedDetails() throws {
+        let day = DayRecord(fields: [
+            DiaryField.wellbeing.rawValue: revision(try DiaryCodec.encode(Wellbeing.good), at: 20),
+            DiaryField.screenTime.rawValue: revision(try DiaryCodec.encode(ScreenTime(halfHours: 5)), at: 20)
+        ])
+        let date = try XCTUnwrap(DiaryCodec.date(from: "2026-11-08"))
+        let options = PDFReportOptions(
+            patientName: "Testperson",
+            startDate: date,
+            endDate: date,
+            parts: [.overview, .screenTime],
+            showNames: false,
+            showNotes: false
+        )
+        let url = try PDFReportBuilder.create(days: [
+            PDFReportDay(date: date, record: day, draft: day.draft())
+        ], options: options)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let pdf = try XCTUnwrap(PDFDocument(url: url))
+        XCTAssertGreaterThanOrEqual(pdf.pageCount, 1)
+        let text = pdf.string ?? ""
+        XCTAssertTrue(text.contains("TherDia"))
+        XCTAssertTrue(text.contains("Testperson"))
+        XCTAssertTrue(text.contains("Bildschirmzeit"))
+        XCTAssertFalse(text.contains("Tagebucheinträge nach Datum"))
     }
 
 }
