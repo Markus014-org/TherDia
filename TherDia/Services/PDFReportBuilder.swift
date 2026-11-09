@@ -81,11 +81,11 @@ enum PDFReportBuilder {
                 // Split very long notes so they cannot overflow a whole page.
                 let paragraphs = text.isEmpty ? ["–"] : text.components(separatedBy: .newlines)
                 for paragraph in paragraphs {
-                    let letters = Array(paragraph)
+                    let letters = Array(paragraph.isEmpty ? " " : paragraph)
                     var offset = 0
-                    while offset < max(letters.count, 1) {
+                    while offset < letters.count {
                         let end = min(offset + 260, letters.count)
-                        let piece = letters.isEmpty ? " " : String(letters[offset..<end])
+                        let piece = String(letters[offset..<end])
                         let maxWidth = usable - indent
                         let attributes: [NSAttributedString.Key: Any] = [.font: font]
                         let bounds = (piece as NSString).boundingRect(
