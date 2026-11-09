@@ -121,6 +121,12 @@ struct PDFReportExportView: View {
             .background(TherDiaTheme.canvas)
             .navigationTitle("PDF-Bericht")
             .navigationBarTitleDisplayMode(.inline)
+            .onChange(of: period) { _, _ in generated = false }
+            .onChange(of: from) { _, _ in generated = false }
+            .onChange(of: until) { _, _ in generated = false }
+            .onChange(of: patientName) { _, _ in generated = false }
+            .onChange(of: showNames) { _, _ in generated = false }
+            .onChange(of: showNotes) { _, _ in generated = false }
             .toolbar { ToolbarItem(placement: .cancellationAction) {
                 Button("Schließen") { dismiss() }
             }}
