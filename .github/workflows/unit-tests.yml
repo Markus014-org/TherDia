@@ -5,6 +5,9 @@ on:
     branches: [main]
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   tests:
     runs-on: macos-15
@@ -14,6 +17,7 @@ jobs:
         run: |
           brew install xcodegen
           python3 scripts/generate_icon.py
+          python3 scripts/generate_reminder_sounds.py
           xcodegen generate
       - name: Run Swift unit tests on available iPhone simulator
         shell: bash
