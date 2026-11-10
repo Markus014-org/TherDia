@@ -30,6 +30,28 @@ enum PDFReportBuilder {
         let patient = options.patientName.trimmingCharacters(in: .whitespacesAndNewlines)
 
         let content = renderer.pdfData { context in
+            drawReport(context: context, days: days, options: options,
+                       page: page, margin: margin, usable: usable, footer: footer,
+                       dateRange: dateRange, timestamp: timestamp, patient: patient)
+        }
+        try content.write(to: target, options: Data.WritingOptions.atomic)
+        return target
+    }
+
+    // Kept separate from UIGraphicsPDFRenderer.pdfData's closure so the Swift
+    // compiler can type-check the reporting logic as a regular function.
+    private static func drawReport(
+        context: UIGraphicsPDFRendererContext,
+        days: [PDFReportDay],
+        options: PDFReportOptions,
+        page: CGRect,
+        margin: CGFloat,
+        usable: CGFloat,
+        footer: CGFloat,
+        dateRange: String,
+        timestamp: String,
+        patient: String
+    ) {
             var y: CGFloat = 0
             var pageNumber = 0
 
@@ -374,7 +396,5 @@ enum PDFReportBuilder {
                 y += 10
             }
         }
-        try content.write(to: target, options: .atomic)
-        return target
     }
 }
