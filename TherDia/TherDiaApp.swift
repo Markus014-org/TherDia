@@ -5,6 +5,7 @@ enum MainTab: Hashable { case diary, reports, settings, menu }
 @main
 struct TherDiaApp: App {
     @StateObject private var model = AppModel()
+    @StateObject private var reminders = ReminderManager.shared
     @State private var selectedTab: MainTab = .diary
     @State private var selectedDate = Date()
     @Environment(\.scenePhase) private var scenePhase
@@ -33,9 +34,22 @@ struct TherDiaApp: App {
             }
             .preferredColorScheme(.light)
             .tint(TherDiaTheme.accent)
-            .task { await model.bootstrap() }
+            .task {
+                await model.bootstrap()
+                if model.isReady { await reminders.synchronize(database: model.database) }
+                else { await reminders.refresh() }
+            }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active { Task { await model.sync() } }
+                if phase == .active {
+                    Task {
+                        await reminders.refresh()
+                        await model.sync()
+                        if model.isReady { await reminders.synchronize(database: model.database) }
+                    }
+                }
+            }
+            .onChange(of: model.database) { _, database in
+                Task { await reminders.synchronize(database: database) }
             }
             .onReceive(model.connectivity.$isConnected) { connected in
                 if connected { Task { await model.sync() } }
