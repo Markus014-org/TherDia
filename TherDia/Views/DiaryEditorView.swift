@@ -85,25 +85,47 @@ struct DiaryEditorView: View {
                         if draft.rescueMedication.used {
                             medicationFields(name: $draft.rescueMedication.medication.name,
                                              quantity: $draft.rescueMedication.medication.quantity)
-                            HStack(alignment: .firstTextBaseline) {
-                                Text("Uhrzeit der Einnahme")
-                                    .font(.subheadline)
-                                Spacer(minLength: 12)
-                                TextField("HH:mm (optional)", text: Binding(
-                                    get: { draft.rescueMedication.time ?? "" },
-                                    set: { text in
-                                        draft.rescueMedication.time = text.isEmpty ? nil : text
+                            DatePicker("Uhrzeit der Einnahme",
+                                selection: Binding(
+                                    get: {
+                                        let formatter = DateFormatter()
+                                        formatter.locale = Locale(identifier: "de_DE")
+                                        formatter.dateFormat = "HH:mm"
+                                        return draft.rescueMedication.time.flatMap { formatter.date(from: $0) } ?? Date()
+                                    },
+                                    set: { chosenDate in
+                                        let formatter = DateFormatter()
+                                        formatter.locale = Locale(identifier: "de_DE")
+                                        formatter.dateFormat = "HH:mm"
+                                        draft.rescueMedication.time = formatter.string(from: chosenDate)
                                     }
-                                ))
-                                .keyboardType(.numbersAndPunctuation)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                                .textFieldStyle(.roundedBorder)
-                                .multilineTextAlignment(.center)
-                                .frame(width: 132)
-                                .accessibilityLabel("Uhrzeit der Notmedikation in Stunden und Minuten")
+                                ),
+                                displayedComponents: .hourAndMinute
+                            )
+                            .datePickerStyle(.wheel)
+                            .labelsHidden()
+                            .frame(height: 165)
+                            .clipped()
+                            .accessibilityLabel("Uhrzeit der Notmedikation auswählen")
+                            if draft.rescueMedication.time == nil {
+                                Button("Angezeigte Uhrzeit übernehmen") {
+                                    let formatter = DateFormatter()
+                                    formatter.dateFormat = "HH:mm"
+                                    draft.rescueMedication.time = formatter.string(from: Date())
+                                }
+                                .font(.subheadline)
+                            } else {
+                                HStack {
+                                    Text("Gespeichert: \(draft.rescueMedication.time ?? "") Uhr")
+                                        .font(.subheadline)
+                                    Spacer()
+                                    Button("Uhrzeit löschen") {
+                                        draft.rescueMedication.time = nil
+                                    }
+                                    .font(.subheadline)
+                                }
                             }
-                            Text("Optional · Beispiel: 08:30. Nur bei angewendeter Notmedikation.")
+                            Text("Die Uhrzeit ist optional. Der Wheel-Picker speichert erst, wenn du ihn veränderst oder „Übernehmen“ wählst.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             Label("Im Bericht mit blauem Punkt markiert", systemImage: "circle.fill")
