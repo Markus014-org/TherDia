@@ -211,4 +211,50 @@ final class TherDiaTests: XCTestCase {
         XCTAssertNotNil(Bundle.main.url(forResource: "TherDiaBell", withExtension: "wav"))
     }
 
+    func testRescueWellbeingAndNotesAreBackwardCompatible() throws {
+        let old = #"{"used":true,"medication":{"name":"Notfall","quantity":"5 mg"},"time":"10:30"}"#
+        let legacy = try XCTUnwrap(DiaryCodec.decode(RescueMedication.self, old))
+        XCTAssertNil(legacy.wellbeingAfter)
+        XCTAssertEqual(legacy.wellbeingNotes, "")
+
+        var draft = DayDraft()
+        draft.rescueMedication = RescueMedication(
+            used: true, medication: Medication(name: "Notfall", quantity: "5 mg"),
+            time: "10:30", wellbeingAfter: .good, wellbeingNotes: "Danach ruhiger"
+        )
+        let serialized = try draft.serializedFields()
+        let restored = try XCTUnwrap(DiaryCodec.decode(RescueMedication.self, serialized[.rescueMedication]))
+        XCTAssertEqual(restored.wellbeingAfter, .good)
+        XCTAssertEqual(restored.wellbeingNotes, "Danach ruhiger")
+        XCTAssertTrue(restored.summary.contains("Danach ruhiger"))
+        draft.rescueMedication.used = false
+        draft.normalize()
+        XCTAssertNil(draft.rescueMedication.wellbeingAfter)
+        XCTAssertTrue(draft.rescueMedication.wellbeingNotes.isEmpty)
+    }
+
+    func testReminderSchedulesHalfHourlyAfterInitialAlertWithoutAppRunning() throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let day = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 10, hour: 0, minute: 0)))
+        let now = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 10, hour: 20, minute: 5)))
+        let times = ReminderSchedule.dates(on: day, hour: 20, minute: 0, now: now, calendar: calendar)
+        XCTAssertGreaterThanOrEqual(times.count, 6)
+        XCTAssertEqual(calendar.component(.hour, from: times[0]), 20)
+        XCTAssertEqual(calendar.component(.minute, from: times[0]), 30)
+        XCTAssertEqual(times[1].timeIntervalSince(times[0]), 30 * 60)
+    }
+
+    func testReminderSnoozeIsReplannedFromChosenTime() throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let day = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 10)))
+        let now = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 10, hour: 20, minute: 5)))
+        let snooze = now.addingTimeInterval(15 * 60)
+        let times = ReminderSchedule.dates(on: day, hour: 20, minute: 0, now: now,
+                                          snoozeUntil: snooze, calendar: calendar)
+        XCTAssertEqual(times.first, snooze)
+        XCTAssertEqual(times[1].timeIntervalSince(times[0]), 30 * 60)
+        let nextDay = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: day))
+        XCTAssertTrue(times.allSatisfy { $0 < nextDay })
+    }
+
 }
