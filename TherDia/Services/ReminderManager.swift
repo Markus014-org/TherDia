@@ -96,8 +96,20 @@ final class ReminderManager: NSObject, ObservableObject, UNUserNotificationCente
         })
         defaults.set(Array(dismissedDays), forKey: Self.dismissedKey)
         let pending = await center.pendingNotificationRequests()
+        let todayKey = DiaryCodec.dateKey(today)
+        let activeSnoozeID = Self.requestPrefix + todayKey + "-snooze"
+        // A snooze survives foreground refresh; only saving or dismissing the day removes it.
+        let hasValidSnooze = pending.contains { request in
+            request.identifier == activeSnoozeID &&
+            settings.enabled &&
+            !recordedDays.contains(todayKey) &&
+            !dismissedDays.contains(todayKey)
+        }
         center.removePendingNotificationRequests(
-            withIdentifiers: pending.filter { $0.identifier.hasPrefix(Self.requestPrefix) }.map(\.identifier)
+            withIdentifiers: pending.filter { request in
+                guard request.identifier.hasPrefix(Self.requestPrefix) else { return false }
+                return !(hasValidSnooze && request.identifier == activeSnoozeID)
+            }.map(\.identifier)
         )
 
         let status = await center.notificationSettings()
@@ -121,7 +133,7 @@ final class ReminderManager: NSObject, ObservableObject, UNUserNotificationCente
         for offset in 0..<30 {
             guard let date = calendar.date(byAdding: .day, value: offset, to: today) else { continue }
             let key = DiaryCodec.dateKey(date)
-            if recordedDays.contains(key) || dismissedDays.contains(key) { continue }
+            if recordedDays.contains(key) || dismissedDays.contains(key) || (offset == 0 && hasValidSnooze) { continue }
 
             var parts = calendar.dateComponents([.year, .month, .day], from: date)
             parts.hour = settings.hour
