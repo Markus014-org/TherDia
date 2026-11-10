@@ -81,7 +81,7 @@ struct InformationView: View {
                      icon: "pills")
             Divider()
             HelpLine("Notmedikation",
-                     "Wähle Ja oder Nein. Bei Ja gibst du Art und Menge ein; die Uhrzeit der Einnahme kann zusätzlich erfasst werden. In der Tagesübersicht erscheint dafür ein blauer Punkt.",
+                     "Wähle Ja oder Nein. Bei Ja gibst du Art und Menge ein; die Uhrzeit kann mit einem iOS-Wheel-Picker erfasst werden. Darunter lässt sich das Wohlbefinden nach der Medikation mit einem fünfstufigen Regler und einer optionalen Notiz dokumentieren. In der Tagesübersicht erscheint ein blauer Punkt.",
                      icon: "cross.vial.fill")
             Divider()
             HelpLine("Aggressives Verhalten",
@@ -141,7 +141,7 @@ struct InformationView: View {
                      icon: "calendar.badge.checkmark")
             Divider()
             HelpLine("Schlummern oder für heute beenden",
-                     "In der Benachrichtigung kannst du „Für heute beenden“ sowie 15, 30 oder 60 Minuten Schlummern wählen. Eine Schlummer-Erinnerung wird nur für denselben Kalendertag geplant; läuft die Zeit erst nach Mitternacht ab, wird kein Hinweis für den Vortag nachgeholt.",
+                     "Ohne Bestätigung erinnert TherDia am selben Tag alle 30 Minuten erneut. Tippen auf die Mitteilung, Öffnen der App oder Wegwischen beenden die Erinnerungen nicht. Du kannst ausdrücklich „Für heute beenden“ wählen oder für 15, 30 oder 60 Minuten schlummern. Nach Mitternacht gibt es keine Nachhol-Erinnerung für den Vortag.",
                      icon: "clock")
             Divider()
             HelpLine("Mehrere Geräte und Hintergrundverhalten",
