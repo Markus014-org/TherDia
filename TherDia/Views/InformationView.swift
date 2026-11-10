@@ -81,7 +81,7 @@ struct InformationView: View {
                      icon: "pills")
             Divider()
             HelpLine("Notmedikation",
-                     "Wähle Ja oder Nein. Bei Ja gibst du Art und Menge ein; die Uhrzeit kann mit einem iOS-Wheel-Picker erfasst werden. Darunter lässt sich das Wohlbefinden nach der Medikation mit einem fünfstufigen Regler und einer optionalen Notiz dokumentieren. In der Tagesübersicht erscheint ein blauer Punkt.",
+                     "Wähle Ja oder Nein. Bei Ja gibst du Art und Menge ein; die Uhrzeit kann mit einem iOS-Wheel-Picker erfasst werden. Direkt unter der Uhrzeit kannst du angeben, ob Müdigkeit als Folge aufgetreten ist (Ja, Nein oder nicht angegeben). Anschließend lässt sich das Wohlbefinden nach der Medikation mit einem fünfstufigen Regler und einer optionalen Notiz dokumentieren. In der Tagesübersicht erscheint ein blauer Punkt.",
                      icon: "cross.vial.fill")
             Divider()
             HelpLine("Aggressives Verhalten",
