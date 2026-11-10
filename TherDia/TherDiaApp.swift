@@ -6,6 +6,7 @@ enum MainTab: Hashable { case diary, reports, settings, menu }
 struct TherDiaApp: App {
     @StateObject private var model = AppModel()
     @StateObject private var reminders = ReminderManager.shared
+    @StateObject private var testFlightVersion = TestFlightVersionChecker()
     @State private var selectedTab: MainTab = .diary
     @State private var selectedDate = Date()
     @Environment(\.scenePhase) private var scenePhase
@@ -15,7 +16,7 @@ struct TherDiaApp: App {
             Group {
                 if model.isReady {
                     TabView(selection: $selectedTab) {
-                        DiaryEditorView(model: model, selectedDate: $selectedDate, selectedTab: $selectedTab)
+                        DiaryEditorView(model: model, selectedDate: $selectedDate, selectedTab: $selectedTab, testFlightVersion: testFlightVersion)
                             .tag(MainTab.diary)
                             .tabItem { Label("Tagebuch", systemImage: "book.closed.fill") }
                         ReportsView(model: model)
@@ -36,12 +37,14 @@ struct TherDiaApp: App {
             .tint(TherDiaTheme.accent)
             .task {
                 await model.bootstrap()
+                await testFlightVersion.refresh()
                 if model.isReady { await reminders.synchronize(database: model.database) }
                 else { await reminders.refresh() }
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     Task {
+                        await testFlightVersion.refresh()
                         await reminders.refresh()
                         await model.sync()
                         if model.isReady { await reminders.synchronize(database: model.database) }
