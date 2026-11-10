@@ -73,8 +73,9 @@ def jwt_token():
 
 
 def internal_group_builds(api, app_id):
-    groups = api.list(f"/v1/apps/{app_id}/betaGroups",
-                      **{"fields[betaGroups]": "isInternalGroup,hasAccessToAllBuilds",
+    groups = api.list("/v1/betaGroups",
+                      **{"filter[app]": app_id,
+                         "fields[betaGroups]": "isInternalGroup,hasAccessToAllBuilds",
                          "limit": "200"})
     all_access = False
     explicit = set()
