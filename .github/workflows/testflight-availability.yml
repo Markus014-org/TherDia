@@ -6,6 +6,11 @@ on:
     workflows: ["TherDia - TestFlight"]
     types: [completed]
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/check_testflight_availability.py
+      - .github/workflows/testflight-availability.yml
 permissions:
   contents: write
 concurrency:
