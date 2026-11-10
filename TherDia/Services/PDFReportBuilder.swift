@@ -395,6 +395,5 @@ enum PDFReportBuilder {
                 }
                 y += 10
             }
-        }
     }
 }
