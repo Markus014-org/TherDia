@@ -1,0 +1,50 @@
+name: TherDia - TestFlight Availability
+on:
+  schedule:
+    - cron: "15,45 * * * *"
+  workflow_run:
+    workflows: ["TherDia - TestFlight"]
+    types: [completed]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: therdia-testflight-availability
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    # Never trust uploads alone: query Apple's actual testable build status.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Install App Store Connect client dependencies
+        run: python3 -m pip install --user PyJWT cryptography
+      - name: Query testable builds at App Store Connect
+        env:
+          FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
+          FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
+          FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+          APP_IDENTIFIER: ${{ vars.BUNDLE_ID || 'de.therdia.app' }}
+        run: |
+          set -euo pipefail
+          python3 scripts/check_testflight_availability.py > testflight-availability-next.json
+          python3 -m json.tool testflight-availability-next.json > /dev/null
+      - name: Publish only if availability changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if cmp -s testflight-availability.json testflight-availability-next.json; then
+            echo "No change to TestFlight availability."
+            exit 0
+          fi
+          current_sha=$(gh api "repos/$GITHUB_REPOSITORY/contents/testflight-availability.json" --jq '.sha')
+          encoded=$(base64 < testflight-availability-next.json | tr -d '\n')
+          gh api --method PUT "repos/$GITHUB_REPOSITORY/contents/testflight-availability.json" \
+            -f message="Update available internal TestFlight build from App Store Connect" \
+            -f content="$encoded" \
+            -f sha="$current_sha" >/dev/null
+          echo "Published latest testable TestFlight build."
