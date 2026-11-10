@@ -2,7 +2,7 @@ import Foundation
 import UserNotifications
 import Combine
 
-/// Schedules one notification per local calendar day (30 days ahead).
+/// Schedules one notification per local calendar day (up to 60 days ahead).
 /// Settings and dismissed dates live on this device, not in Dropbox.
 /// iOS does not execute arbitrary code when a local notification fires:
 /// the decision to notify is therefore made when scheduling / on save.
@@ -82,6 +82,10 @@ final class ReminderManager: NSObject, ObservableObject, UNUserNotificationCente
         let key = DiaryCodec.dateKey(date)
         recordedDays.insert(key)
         defaults.set(Array(recordedDays), forKey: Self.recordedDaysKey)
+        center.removeDeliveredNotifications(withIdentifiers: [
+            Self.requestPrefix + key,
+            Self.requestPrefix + key + "-snooze"
+        ])
         await refresh()
     }
 
@@ -130,7 +134,7 @@ final class ReminderManager: NSObject, ObservableObject, UNUserNotificationCente
 
         // A finite rolling window respects Apple's pending-notification limit.
         // Rebuilt when the app starts, resumes, saves, or synchronizes.
-        for offset in 0..<30 {
+        for offset in 0..<60 {
             guard let date = calendar.date(byAdding: .day, value: offset, to: today) else { continue }
             let key = DiaryCodec.dateKey(date)
             if recordedDays.contains(key) || dismissedDays.contains(key) || (offset == 0 && hasValidSnooze) { continue }
