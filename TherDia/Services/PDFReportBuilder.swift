@@ -255,6 +255,7 @@ enum PDFReportBuilder {
                         let rescue = day.draft.rescueMedication
                         let details = [rescue.medication.summary,
                                        rescue.time.map { $0 + " Uhr" } ?? "",
+                                       rescue.tirednessAfter.map { "Müdigkeit als Folge: " + ($0 ? "Ja" : "Nein") } ?? "",
                                        rescue.wellbeingAfter.map { "Befinden danach: " + $0.title } ?? ""]
                             .filter { !$0.isEmpty }.joined(separator: " · ")
                         line("\(day.date.formatted(date: .abbreviated, time: .omitted)): \(details)")
@@ -332,6 +333,7 @@ enum PDFReportBuilder {
                                     value = rescue.used ? (
                                         rescue.medication.summary +
                                         (rescue.time.map { " · " + $0 + " Uhr" } ?? "") +
+                                        (rescue.tirednessAfter.map { " · Müdigkeit: " + ($0 ? "Ja" : "Nein") } ?? "") +
                                         (rescue.wellbeingAfter.map { " · Befinden danach: " + $0.title } ?? "")
                                     ) : "Nein"
                                 }
