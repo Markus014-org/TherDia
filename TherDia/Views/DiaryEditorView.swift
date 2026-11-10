@@ -4,6 +4,7 @@ struct DiaryEditorView: View {
     @ObservedObject var model: AppModel
     @Binding var selectedDate: Date
     @Binding var selectedTab: MainTab
+    @ObservedObject var testFlightVersion: TestFlightVersionChecker
     @State private var showDateJump = false
     @State private var savedMessage = false
     @State private var draft = DayDraft()
@@ -17,6 +18,18 @@ struct DiaryEditorView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 15) {
+                    if testFlightVersion.updateAvailable {
+                        HStack(alignment: .top, spacing: 7) {
+                            Image(systemName: "arrow.down.circle.fill")
+                            Text("Eine neue Version von TherDia ist in TestFlight verfügbar. Bitte aktualisieren.")
+                                .font(.subheadline.weight(.semibold))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .foregroundStyle(Color(red: 0.0, green: 0.52, blue: 0.56))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityLabel("Neue TherDia-Version in TestFlight verfügbar")
+                    }
+
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Wie war dein Tag?")
                             .font(.system(size: 29, weight: .bold, design: .rounded))
