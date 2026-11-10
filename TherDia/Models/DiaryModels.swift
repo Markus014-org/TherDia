@@ -82,23 +82,36 @@ struct RescueMedication: Codable, Equatable {
     var medication: Medication = Medication()
     // Optional local time as HH:mm; old Dropbox entries without time still decode.
     var time: String? = nil
+    // nil means "not evaluated". Older entries remain unchanged.
+    var wellbeingAfter: Wellbeing? = nil
+    var wellbeingNotes: String = ""
 
-    init(used: Bool = false, medication: Medication = Medication(), time: String? = nil) {
+    init(used: Bool = false, medication: Medication = Medication(), time: String? = nil,
+         wellbeingAfter: Wellbeing? = nil, wellbeingNotes: String = "") {
         self.used = used
         self.medication = medication
         self.time = time
+        self.wellbeingAfter = wellbeingAfter
+        self.wellbeingNotes = wellbeingNotes
     }
 
-    enum CodingKeys: String, CodingKey { case used, medication, time }
+    enum CodingKeys: String, CodingKey { case used, medication, time, wellbeingAfter, wellbeingNotes }
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         used = try values.decodeIfPresent(Bool.self, forKey: .used) ?? false
         medication = try values.decodeIfPresent(Medication.self, forKey: .medication) ?? Medication()
         time = try values.decodeIfPresent(String.self, forKey: .time)
+        wellbeingAfter = try values.decodeIfPresent(Wellbeing.self, forKey: .wellbeingAfter)
+        wellbeingNotes = try values.decodeIfPresent(String.self, forKey: .wellbeingNotes) ?? ""
     }
 
     var summary: String {
-        used ? (medication.summary + (time.map { " · \($0) Uhr" } ?? "")) : "Nein"
+        guard used else { return "Nein" }
+        var parts = [medication.summary]
+        if let time { parts.append(time + " Uhr") }
+        if let wellbeingAfter { parts.append("Wohlbefinden danach: " + wellbeingAfter.title) }
+        if !wellbeingNotes.isEmpty { parts.append("Anmerkung: " + wellbeingNotes) }
+        return parts.joined(separator: " · ")
     }
 }
 
@@ -205,7 +218,13 @@ struct DayDraft: Equatable {
             let cleaned = enteredTime.trimmingCharacters(in: .whitespacesAndNewlines)
             rescueMedication.time = cleaned.isEmpty ? nil : cleaned
         }
-        if !rescueMedication.used { rescueMedication.medication = Medication(); rescueMedication.time = nil }
+        rescueMedication.wellbeingNotes = rescueMedication.wellbeingNotes.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !rescueMedication.used {
+            rescueMedication.medication = Medication()
+            rescueMedication.time = nil
+            rescueMedication.wellbeingAfter = nil
+            rescueMedication.wellbeingNotes = ""
+        }
         injuries.details = injuries.details.trimmingCharacters(in: .whitespacesAndNewlines)
         if !injuries.happened { injuries.details = "" }
         if !aggression.happened {
