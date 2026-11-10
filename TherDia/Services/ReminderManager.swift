@@ -120,9 +120,11 @@ final class ReminderManager: NSObject, ObservableObject, UNUserNotificationCente
         saveSnoozes()
         // The notification may already be visible. Only saving or explicit
         // 'For today end' is allowed to clear delivered notifications.
-        center.removeDeliveredNotifications(withIdentifiers: [
-            Self.requestPrefix + dayKey
-        ])
+        let delivered = await center.deliveredNotifications()
+        center.removeDeliveredNotifications(withIdentifiers:
+            delivered.filter { ($0.request.content.userInfo["dayKey"] as? String) == dayKey }
+                .map { $0.request.identifier }
+        )
         await refresh()
     }
 
