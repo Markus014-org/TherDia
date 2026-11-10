@@ -153,6 +153,8 @@ final class AppModel: ObservableObject {
             try localStore.write(updated, password: password)
             database = updated
             generation += 1
+            // Cancel today's local reminder as soon as local encrypted save succeeded.
+            Task { await ReminderManager.shared.markSaved(date: date) }
             syncStatus = "Lokal verschlüsselt gespeichert · Synchronisation ausstehend"
             if connected && connectivity.isConnected {
                 Task { await self.sync() }
