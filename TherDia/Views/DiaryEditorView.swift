@@ -141,6 +141,20 @@ struct DiaryEditorView: View {
                             Text("Die Uhrzeit ist optional. Der Wheel-Picker speichert erst, wenn du ihn veränderst oder „Übernehmen“ wählst.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Müdigkeit als Folge?")
+                                    .font(.subheadline.bold())
+                                Picker("Müdigkeit als Folge?", selection: $draft.rescueMedication.tirednessAfter) {
+                                    Text("Nicht angegeben").tag(Optional<Bool>.none)
+                                    Text("Nein").tag(Optional(false))
+                                    Text("Ja").tag(Optional(true))
+                                }
+                                .pickerStyle(.segmented)
+                                Text("Wähle Ja oder Nein, wenn die Folge der Medikation beurteilt wurde.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
                             VStack(alignment: .leading, spacing: 9) {
                                 Text("Wohlbefinden nach Medikation").font(.subheadline.bold())
                                 if draft.rescueMedication.wellbeingAfter == nil {
