@@ -128,6 +128,29 @@ struct DiaryEditorView: View {
                             Text("Die Uhrzeit ist optional. Der Wheel-Picker speichert erst, wenn du ihn veränderst oder „Übernehmen“ wählst.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 9) {
+                                Text("Wohlbefinden nach Medikation").font(.subheadline.bold())
+                                if draft.rescueMedication.wellbeingAfter == nil {
+                                    Text("Noch keine Bewertung ausgewählt")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                WellbeingControl(value: Binding(
+                                    get: { draft.rescueMedication.wellbeingAfter ?? .fairlyGood },
+                                    set: { draft.rescueMedication.wellbeingAfter = $0 }
+                                ), label: "Wohlbefinden nach Notmedikation")
+                                if draft.rescueMedication.wellbeingAfter != nil {
+                                    Button("Bewertung entfernen") {
+                                        draft.rescueMedication.wellbeingAfter = nil
+                                    }
+                                    .font(.caption)
+                                }
+                                TextField("Anmerkung nach der Medikation (optional)",
+                                          text: $draft.rescueMedication.wellbeingNotes,
+                                          axis: .vertical)
+                                    .lineLimit(2...5)
+                                    .textFieldStyle(.roundedBorder)
+                            }
+                            .padding(.top, 8)
                             Label("Im Bericht mit blauem Punkt markiert", systemImage: "circle.fill")
                                 .foregroundStyle(.blue).font(.caption)
                         }
