@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 
 struct SettingsView: View {
     @ObservedObject var model: AppModel
@@ -6,12 +7,31 @@ struct SettingsView: View {
     @State private var reminderSettings = ReminderSettings()
     @State private var reminderWheel = Date()
     @State private var reminderSaving = false
+    @State private var tonePreview: AVAudioPlayer?
     @State private var base = MedicationList()
     @State private var rescue = Medication()
     @State private var showReset = false
     @State private var authCode = ""
     @State private var showReconnect = false
     @Environment(\.openURL) private var openURL
+
+    private func previewReminderTone() {
+        let selected = reminderSettings.tone
+        // For the system sound, use a short embedded preview instead: Apple
+        // does not expose the private default notification sound as an audio file.
+        let sound = selected.soundName ?? ReminderTone.gentle.soundName!
+        guard let url = Bundle.main.url(forResource: sound, withExtension: nil) else {
+            model.errorMessage = "Die Tondatei ist in diesem Build nicht verfügbar."
+            return
+        }
+        do {
+            tonePreview = try AVAudioPlayer(contentsOf: url)
+            tonePreview?.prepareToPlay()
+            tonePreview?.play()
+        } catch {
+            model.errorMessage = "Ton konnte nicht abgespielt werden: \(error.localizedDescription)"
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -105,6 +125,12 @@ struct SettingsView: View {
                                     }
                                 }
                                 .pickerStyle(.menu)
+                                Button {
+                                    previewReminderTone()
+                                } label: {
+                                    Label("Ton anhören", systemImage: "play.circle")
+                                }
+                                .font(.subheadline)
                             }
                             Text("Bei der Benachrichtigung kannst du „Für heute beenden“ oder „In 15 Min.“, „In 30 Min.“ und „In 1 Std.“ wählen.")
                                 .font(.footnote).foregroundStyle(.secondary)
