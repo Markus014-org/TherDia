@@ -243,8 +243,24 @@ enum PDFReportBuilder {
                     }
                 case .emergency:
                     yesNo("Notmedikation", { $0.draft.rescueMedication.used })
+                    heading("Wohlbefinden nach Notmedikation")
+                    distribution(Wellbeing.allCases.map { quality in
+                        (quality.title,
+                         count { $0.draft.rescueMedication.used && $0.draft.rescueMedication.wellbeingAfter == quality },
+                         UIColor(red: [0.13,0.89,0.96,0.83,0.43][quality.rawValue],
+                                 green: [0.66,0.74,0.50,0.22,0.06][quality.rawValue],
+                                 blue: [0.35,0.17,0.16,0.24,0.12][quality.rawValue], alpha: 1))
+                    })
                     for day in days where day.draft.rescueMedication.used {
-                        line("\(day.date.formatted(date: .abbreviated, time: .omitted)): \(day.draft.rescueMedication.summary)")
+                        let rescue = day.draft.rescueMedication
+                        let details = [rescue.medication.summary,
+                                       rescue.time.map { $0 + " Uhr" } ?? "",
+                                       rescue.wellbeingAfter.map { "Befinden danach: " + $0.title } ?? ""]
+                            .filter { !$0.isEmpty }.joined(separator: " · ")
+                        line("\(day.date.formatted(date: .abbreviated, time: .omitted)): \(details)")
+                        if options.showNotes && !rescue.wellbeingNotes.isEmpty {
+                            line("Anmerkung: " + rescue.wellbeingNotes, indent: 10)
+                        }
                     }
                 case .school:
                     heading("Schule und Unterricht")
@@ -311,6 +327,14 @@ enum PDFReportBuilder {
                             if field == .injuries && !options.parts.contains(.legacyInjuries) { continue }
                             if let raw = day.record.field(field)?.value {
                                 var value = FieldDescription.describe(field, json: raw)
+                                if field == .rescueMedication && !options.showNotes {
+                                    let rescue = day.draft.rescueMedication
+                                    value = rescue.used ? (
+                                        rescue.medication.summary +
+                                        (rescue.time.map { " · " + $0 + " Uhr" } ?? "") +
+                                        (rescue.wellbeingAfter.map { " · Befinden danach: " + $0.title } ?? "")
+                                    ) : "Nein"
+                                }
                                 if field == .people && !options.showNames {
                                     value = "\(day.draft.people.count) Person(en) – Namen ausgeblendet"
                                 }
