@@ -11,6 +11,7 @@ struct InformationView: View {
                 diaryGuide
                 dailyCategories
                 savingGuide
+                reminderGuide
                 reportsGuide
                 pdfGuide
                 syncGuide
@@ -122,6 +123,30 @@ struct InformationView: View {
             HelpLine("Lokale Daten",
                      "Die App hält derzeit den gesamten synchronisierten Datenbestand verschlüsselt lokal vor, nicht nur den letzten Monat. Zum erstmaligen Verbinden mit Dropbox ist eine Internetverbindung nötig.",
                      icon: "internaldrive")
+        }
+    }
+
+    private var reminderGuide: some View {
+        SectionCard("5 · Tägliche Erinnerung") {
+            HelpLine("Einmal täglich erinnern",
+                     "Aktiviere in „Einstellungen → Tägliche Tagebuch-Erinnerung“ den Schalter und wähle die gewünschte Uhrzeit mit dem iOS-Wheel-Picker. Tippe auf „Erinnerungseinstellungen speichern“ und erlaube iOS-Mitteilungen.",
+                     icon: "bell")
+            Divider()
+            HelpLine("Anzeige und Ton",
+                     "Du kannst „Nur optisch“, „Nur akustisch“ oder „Optisch und akustisch“ auswählen. Für akustische Hinweise stehen ein Standardton und zwei kurze TherDia-Töne zur Verfügung. iOS-Mitteilungseinstellungen, Lautlos-Modus und Fokus können die tatsächliche Anzeige und Lautstärke beeinflussen; eine reine Ton-Benachrichtigung lässt sich im Hintergrund nicht in allen iOS-Modi garantieren.",
+                     icon: "speaker.wave.2")
+            Divider()
+            HelpLine("Nur für den heutigen Tag",
+                     "Die App plant pro Tag einen Hinweis nur dann, wenn für diesen Tag noch kein Eintrag lokal bekannt ist. Sobald du den Tag erfolgreich speicherst, wird die dazugehörige geplante Erinnerung gelöscht. Frühere Tage lösen keine Nachhol-Erinnerung aus.",
+                     icon: "calendar.badge.checkmark")
+            Divider()
+            HelpLine("Schlummern oder für heute beenden",
+                     "In der Benachrichtigung kannst du „Für heute beenden“ sowie 15, 30 oder 60 Minuten Schlummern wählen. Eine Schlummer-Erinnerung wird nur für denselben Kalendertag geplant; läuft die Zeit erst nach Mitternacht ab, wird kein Hinweis für den Vortag nachgeholt.",
+                     icon: "clock")
+            Divider()
+            HelpLine("Mehrere Geräte und Hintergrundverhalten",
+                     "Die Erinnerung wird auf jedem iPhone separat eingerichtet. Hat ein anderes Gerät bereits gespeichert, erkennt dieses iPhone das erst nach einem Dropbox-Abgleich. iOS überprüft die Dropbox-Datei nicht automatisch zu jeder Alarmzeit. Der Zeitplan wird beim Start und Verwenden der App aufgefrischt.",
+                     icon: "iphone")
         }
     }
 
