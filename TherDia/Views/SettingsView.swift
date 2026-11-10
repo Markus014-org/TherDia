@@ -145,6 +145,8 @@ struct SettingsView: View {
                             newValue.setWheelValue(reminderWheel)
                             Task {
                                 await reminderManager.configure(newValue)
+                                reminderSettings = reminderManager.settings
+                                reminderWheel = reminderManager.settings.wheelValue
                                 reminderSaving = false
                             }
                         } label: {
