@@ -17,10 +17,8 @@ struct SettingsView: View {
 
     private func previewReminderTone() {
         let selected = reminderSettings.tone
-        // For the system sound, use a short embedded preview instead: Apple
-        // does not expose the private default notification sound as an audio file.
-        let sound = selected.soundName ?? ReminderTone.gentle.soundName!
-        guard let url = Bundle.main.url(forResource: sound, withExtension: nil) else {
+        guard let sound = selected.soundName,
+              let url = Bundle.main.url(forResource: sound, withExtension: nil) else {
             model.errorMessage = "Die Tondatei ist in diesem Build nicht verfügbar."
             return
         }
@@ -125,12 +123,17 @@ struct SettingsView: View {
                                     }
                                 }
                                 .pickerStyle(.menu)
-                                Button {
-                                    previewReminderTone()
-                                } label: {
-                                    Label("Ton anhören", systemImage: "play.circle")
+                                if reminderSettings.tone == .system {
+                                    Text("Der iOS-Standardton kann nicht direkt in TherDia vorgespielt werden.")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                } else {
+                                    Button {
+                                        previewReminderTone()
+                                    } label: {
+                                        Label("Ton anhören", systemImage: "play.circle")
+                                    }
+                                    .font(.subheadline)
                                 }
-                                .font(.subheadline)
                             }
                             Text("Bei der Benachrichtigung kannst du „Für heute beenden“ oder „In 15 Min.“, „In 30 Min.“ und „In 1 Std.“ wählen.")
                                 .font(.footnote).foregroundStyle(.secondary)
