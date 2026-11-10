@@ -184,4 +184,31 @@ final class TherDiaTests: XCTestCase {
         XCTAssertNil(draft.validationError)
     }
 
+    func testReminderSettingsPersistAndKeepWheelTime() throws {
+        var settings = ReminderSettings()
+        XCTAssertFalse(settings.enabled)
+        settings.enabled = true
+        settings.hour = 17
+        settings.minute = 45
+        settings.mode = .visual
+        settings.tone = .bell
+        let encoded = try JSONEncoder().encode(settings)
+        let restored = try JSONDecoder().decode(ReminderSettings.self, from: encoded)
+        XCTAssertEqual(restored.timeLabel, "17:45")
+        XCTAssertEqual(restored.mode, .visual)
+        XCTAssertFalse(restored.mode.usesSound)
+        XCTAssertEqual(restored.tone, .bell)
+        let fromWheel = restored.wheelValue
+        var updated = restored
+        updated.setWheelValue(fromWheel)
+        XCTAssertEqual(updated.hour, 17)
+        XCTAssertEqual(updated.minute, 45)
+    }
+
+    func testNotificationSoundFilesAreBundled() {
+        // The XcodeGen-generated app must copy these WAV resources into the app.
+        XCTAssertNotNil(Bundle.main.url(forResource: "TherDiaGentle", withExtension: "wav"))
+        XCTAssertNotNil(Bundle.main.url(forResource: "TherDiaBell", withExtension: "wav"))
+    }
+
 }
