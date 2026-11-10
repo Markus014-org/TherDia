@@ -39,6 +39,8 @@ jobs:
           bundle _2.7.2_ install
       - name: Generate orange App Icon
         run: python3 scripts/generate_icon.py
+      - name: Generate reminder sound files
+        run: python3 scripts/generate_reminder_sounds.py
       - name: Configure Xcode and generate project
         shell: bash
         run: |
