@@ -275,11 +275,15 @@ enum PDFReportBuilder {
                     })
                     for day in days where day.draft.rescueMedication.used {
                         let rescue = day.draft.rescueMedication
-                        let details = [rescue.medication.summary,
-                                       rescue.time.map { $0 + " Uhr" } ?? "",
-                                       rescue.tirednessAfter.map { "Müdigkeit als Folge: " + ($0 ? "Ja" : "Nein") } ?? "",
-                                       rescue.wellbeingAfter.map { "Befinden danach: " + $0.title } ?? ""]
-                            .filter { !$0.isEmpty }.joined(separator: " · ")
+                        var detailParts: [String] = [rescue.medication.summary]
+                        if let time = rescue.time { detailParts.append(time + " Uhr") }
+                        if let tired = rescue.tirednessAfter {
+                            detailParts.append("Müdigkeit als Folge: " + (tired ? "Ja" : "Nein"))
+                        }
+                        if let wellbeing = rescue.wellbeingAfter {
+                            detailParts.append("Befinden danach: " + wellbeing.title)
+                        }
+                        let details = detailParts.filter { !$0.isEmpty }.joined(separator: " · ")
                         line("\(day.date.formatted(date: .abbreviated, time: .omitted)): \(details)")
                         if options.showNotes && !rescue.wellbeingNotes.isEmpty {
                             line("Anmerkung: " + rescue.wellbeingNotes, indent: 10)
