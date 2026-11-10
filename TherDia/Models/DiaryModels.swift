@@ -82,25 +82,30 @@ struct RescueMedication: Codable, Equatable {
     var medication: Medication = Medication()
     // Optional local time as HH:mm; old Dropbox entries without time still decode.
     var time: String? = nil
+    // nil = not assessed (including previously saved entries); true/false = explicit answer.
+    var tirednessAfter: Bool? = nil
     // nil means "not evaluated". Older entries remain unchanged.
     var wellbeingAfter: Wellbeing? = nil
     var wellbeingNotes: String = ""
 
     init(used: Bool = false, medication: Medication = Medication(), time: String? = nil,
-         wellbeingAfter: Wellbeing? = nil, wellbeingNotes: String = "") {
+         wellbeingAfter: Wellbeing? = nil, wellbeingNotes: String = "",
+         tirednessAfter: Bool? = nil) {
         self.used = used
         self.medication = medication
         self.time = time
+        self.tirednessAfter = tirednessAfter
         self.wellbeingAfter = wellbeingAfter
         self.wellbeingNotes = wellbeingNotes
     }
 
-    enum CodingKeys: String, CodingKey { case used, medication, time, wellbeingAfter, wellbeingNotes }
+    enum CodingKeys: String, CodingKey { case used, medication, time, tirednessAfter, wellbeingAfter, wellbeingNotes }
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         used = try values.decodeIfPresent(Bool.self, forKey: .used) ?? false
         medication = try values.decodeIfPresent(Medication.self, forKey: .medication) ?? Medication()
         time = try values.decodeIfPresent(String.self, forKey: .time)
+        tirednessAfter = try values.decodeIfPresent(Bool.self, forKey: .tirednessAfter)
         wellbeingAfter = try values.decodeIfPresent(Wellbeing.self, forKey: .wellbeingAfter)
         wellbeingNotes = try values.decodeIfPresent(String.self, forKey: .wellbeingNotes) ?? ""
     }
@@ -109,6 +114,7 @@ struct RescueMedication: Codable, Equatable {
         guard used else { return "Nein" }
         var parts = [medication.summary]
         if let time { parts.append(time + " Uhr") }
+        if let tirednessAfter { parts.append("Müdigkeit als Folge: " + (tirednessAfter ? "Ja" : "Nein")) }
         if let wellbeingAfter { parts.append("Wohlbefinden danach: " + wellbeingAfter.title) }
         if !wellbeingNotes.isEmpty { parts.append("Anmerkung: " + wellbeingNotes) }
         return parts.joined(separator: " · ")
@@ -222,6 +228,7 @@ struct DayDraft: Equatable {
         if !rescueMedication.used {
             rescueMedication.medication = Medication()
             rescueMedication.time = nil
+            rescueMedication.tirednessAfter = nil
             rescueMedication.wellbeingAfter = nil
             rescueMedication.wellbeingNotes = ""
         }
