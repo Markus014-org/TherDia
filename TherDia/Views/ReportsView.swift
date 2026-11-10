@@ -420,6 +420,33 @@ struct ReportsView: View {
                                  color: TherDiaTheme.quality(quality))
             })
             DistributionCard(title: "Notmedikation", items: yesNo(rescueDays, count: count))
+            DistributionCard(title: "Wohlbefinden nach Notmedikation", items:
+                Wellbeing.allCases.map { quality in
+                    DistributionItem(name: quality.title,
+                        count: filtered.filter {
+                            $0.draft.rescueMedication.used &&
+                            $0.draft.rescueMedication.wellbeingAfter == quality
+                        }.count,
+                        color: TherDiaTheme.quality(quality))
+                }
+            )
+            SectionCard("Notmedikation – ergänzende Anmerkungen") {
+                let notes = filtered.filter {
+                    $0.draft.rescueMedication.used &&
+                    !$0.draft.rescueMedication.wellbeingNotes.isEmpty
+                }
+                if notes.isEmpty {
+                    Text("Keine Anmerkungen erfasst").foregroundStyle(.secondary)
+                } else {
+                    ForEach(notes) { day in
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(day.date.formatted(date: .abbreviated, time: .omitted))
+                                .font(.caption.bold())
+                            Text(day.draft.rescueMedication.wellbeingNotes).font(.subheadline)
+                        }
+                    }
+                }
+            }
             DistributionCard(title: "Aggressives Verhalten", items: [
                 DistributionItem(name: "Nein", count: recordedBehavior.count - aggressiveCount, color: .gray),
                 DistributionItem(name: "Selbstverletzend", count: recordedBehavior.filter { $0.draft.aggression.selfInjurious && !$0.draft.aggression.otherAggressive }.count, color: .orange),
