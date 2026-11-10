@@ -2,6 +2,10 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var model: AppModel
+    @ObservedObject private var reminderManager = ReminderManager.shared
+    @State private var reminderSettings = ReminderSettings()
+    @State private var reminderWheel = Date()
+    @State private var reminderSaving = false
     @State private var base = MedicationList()
     @State private var rescue = Medication()
     @State private var showReset = false
@@ -79,6 +83,56 @@ struct SettingsView: View {
                         model.updateDefaults(base: base, rescue: rescue)
                         model.errorMessage = "Medikamenten-Voreinstellungen gespeichert."
                     }
+                    SectionCard("Tägliche Tagebuch-Erinnerung", subtitle: "Nur für heute, falls noch kein Eintrag gespeichert wurde") {
+                        Toggle("Einmal täglich erinnern", isOn: $reminderSettings.enabled)
+                        if reminderSettings.enabled {
+                            Text("Erinnerungszeit").font(.subheadline.bold())
+                            DatePicker("Uhrzeit", selection: $reminderWheel, displayedComponents: .hourAndMinute)
+                                .datePickerStyle(.wheel)
+                                .labelsHidden()
+                                .frame(maxWidth: .infinity)
+                                .accessibilityLabel("Uhrzeit der täglichen Erinnerung")
+                            Picker("Art der Erinnerung", selection: $reminderSettings.mode) {
+                                ForEach(ReminderMode.allCases) { mode in
+                                    Text(mode.rawValue).tag(mode)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            if reminderSettings.mode.usesSound {
+                                Picker("Erinnerungston", selection: $reminderSettings.tone) {
+                                    ForEach(ReminderTone.allCases) { tone in
+                                        Text(tone.rawValue).tag(tone)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                            }
+                            Text("Bei der Benachrichtigung kannst du „Für heute beenden“ oder „In 15 Min.“, „In 30 Min.“ und „In 1 Std.“ wählen.")
+                                .font(.footnote).foregroundStyle(.secondary)
+                        }
+                        Button {
+                            guard !reminderSaving else { return }
+                            reminderSaving = true
+                            var newValue = reminderSettings
+                            newValue.setWheelValue(reminderWheel)
+                            Task {
+                                await reminderManager.configure(newValue)
+                                reminderSaving = false
+                            }
+                        } label: {
+                            Label(reminderSaving ? "Wird gespeichert …" : "Erinnerungseinstellungen speichern",
+                                  systemImage: "bell.badge")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(reminderSaving)
+                        Label(reminderManager.authorizationMessage, systemImage: "bell")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("iOS-Mitteilungen müssen erlaubt sein. Reine Tonerinnerungen können je nach iOS-Mitteilungseinstellungen dennoch sichtbar sein. Lautlos-Modus und Fokus können Töne unterdrücken. Nach dem Speichern eines Tages werden geplante Erinnerungen für diesen Tag gelöscht.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                        Text("Erinnerungen gelten für dieses iPhone. Wenn ein anderes Gerät einen Tag speichert, erkennt dieses iPhone das erst nach dem nächsten Dropbox-Abgleich. iOS kann Erinnerungen nicht bei jedem Alarm im Hintergrund mit Dropbox abgleichen.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                     SectionCard("Datenschutz & Geräte") {
                         Label("Dropbox und Offline-Cache: AES-256-GCM", systemImage: "lock.shield")
                         Label("Passphrase und Token: iOS-Schlüsselbund", systemImage: "key")
@@ -92,7 +146,13 @@ struct SettingsView: View {
             .background(TherDiaTheme.canvas)
             .navigationTitle("Einstellungen")
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear { base = model.defaultBase; rescue = model.defaultRescue }
+            .onAppear {
+                base = model.defaultBase
+                rescue = model.defaultRescue
+                reminderSettings = reminderManager.settings
+                reminderWheel = reminderManager.settings.wheelValue
+                Task { await reminderManager.refresh() }
+            }
             .confirmationDialog("Gerät zurücksetzen?", isPresented: $showReset, titleVisibility: .visible) {
                 Button("Lokale Daten und Zugang löschen", role: .destructive) { model.resetThisDevice() }
             } message: {
