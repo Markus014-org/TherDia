@@ -211,6 +211,30 @@ final class TherDiaTests: XCTestCase {
         XCTAssertNotNil(Bundle.main.url(forResource: "TherDiaBell", withExtension: "wav"))
     }
 
+    func testTirednessAfterRescueMedicationIsOptionalAndBackwardCompatible() throws {
+        let legacy = #"{"used":true,"medication":{"name":"Notfall","quantity":"5 mg"},"time":"10:30"}"#
+        XCTAssertNil(DiaryCodec.decode(RescueMedication.self, legacy)?.tirednessAfter)
+
+        for tired in [false, true] {
+            var draft = DayDraft()
+            draft.rescueMedication = RescueMedication(
+                used: true,
+                medication: Medication(name: "Notfall", quantity: "5 mg"),
+                time: "10:30",
+                tirednessAfter: tired
+            )
+            let fields = try draft.serializedFields()
+            let restored = try XCTUnwrap(DiaryCodec.decode(
+                RescueMedication.self, fields[.rescueMedication]))
+            XCTAssertEqual(restored.tirednessAfter, tired)
+            XCTAssertTrue(restored.summary.contains("Müdigkeit als Folge: " + (tired ? "Ja" : "Nein")))
+
+            draft.rescueMedication.used = false
+            draft.normalize()
+            XCTAssertNil(draft.rescueMedication.tirednessAfter)
+        }
+    }
+
     func testRescueWellbeingAndNotesAreBackwardCompatible() throws {
         let old = #"{"used":true,"medication":{"name":"Notfall","quantity":"5 mg"},"time":"10:30"}"#
         let legacy = try XCTUnwrap(DiaryCodec.decode(RescueMedication.self, old))
