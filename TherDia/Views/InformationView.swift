@@ -9,6 +9,7 @@ struct InformationView: View {
                 introduction
                 quickStart
                 diaryGuide
+                updateGuide
                 dailyCategories
                 savingGuide
                 reminderGuide
@@ -74,6 +75,25 @@ struct InformationView: View {
         }
     }
 
+    private var updateGuide: some View {
+        SectionCard("TestFlight · Neue Version erkennen") {
+            HelpLine("Türkiser Hinweis im Tagebuch",
+                     "Wenn eine neuere, von Apple für interne Tests bereitgestellte TherDia-Version verfügbar ist, erscheint oben links im Tagebuch ein türkisfarbener Hinweis. Nach dem Aktualisieren auf diese Version wird der Hinweis nicht mehr angezeigt.",
+                     icon: "arrow.down.circle")
+            Divider()
+            HelpLine("App aktualisieren",
+                     "Öffne Apples TestFlight-App auf dem iPhone, wähle TherDia und tippe auf „Aktualisieren“. Lass die bisherige App installiert, damit nicht synchronisierte lokale Einträge erhalten bleiben.",
+                     icon: "arrow.down.app")
+            Divider()
+            HelpLine("Wann wird geprüft?",
+                     "TherDia fragt beim Öffnen beziehungsweise erneuten Aktivieren der App eine über GitHub bereitgestellte Versionsinformation ab. Diese wird regelmäßig mit Apples TestFlight-Status abgeglichen. Ohne Internet oder wenn die Abfrage fehlschlägt, kann der Hinweis fehlen.",
+                     icon: "wifi")
+            Text("Ein grüner GitHub-Build-Check oder ein erfolgreicher Upload allein bedeutet noch nicht, dass die Version bereits in TestFlight installiert werden kann.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     private var dailyCategories: some View {
         SectionCard("3 · Alle Tagebuch-Kategorien") {
             HelpLine("Basis-Medikation",
@@ -133,25 +153,25 @@ struct InformationView: View {
                      icon: "bell")
             Divider()
             HelpLine("Anzeige und Ton",
-                     "Du kannst „Nur optisch“, „Nur akustisch“ oder „Optisch und akustisch“ auswählen. Für akustische Hinweise stehen ein Standardton und zwei kurze TherDia-Töne zur Verfügung. iOS-Mitteilungseinstellungen, Lautlos-Modus und Fokus können die tatsächliche Anzeige und Lautstärke beeinflussen; eine reine Ton-Benachrichtigung lässt sich im Hintergrund nicht in allen iOS-Modi garantieren.",
+                     "Du kannst „Nur optisch“, „Nur akustisch“ oder „Optisch und akustisch“ auswählen. Für akustische Hinweise stehen ein Standardton und zwei kurze TherDia-Töne zur Verfügung; die TherDia-Töne kannst du in den Einstellungen probehören. iOS-Mitteilungseinstellungen, Lautlos-Modus und Fokus können die tatsächliche Anzeige und Lautstärke beeinflussen; eine reine Ton-Benachrichtigung lässt sich im Hintergrund nicht in allen iOS-Modi garantieren.",
                      icon: "speaker.wave.2")
             Divider()
-            HelpLine("Nur für den heutigen Tag",
-                     "Die App plant pro Tag einen Hinweis nur dann, wenn für diesen Tag noch kein Eintrag lokal bekannt ist. Sobald du den Tag erfolgreich speicherst, wird die dazugehörige geplante Erinnerung gelöscht. Frühere Tage lösen keine Nachhol-Erinnerung aus.",
+            HelpLine("Nur für den aktuellen Tag",
+                     "TherDia plant für den Tag eine Erinnerung nur, wenn noch kein entsprechender Eintrag auf dem iPhone bekannt ist. Bei erfolgreichem Speichern werden geplante weitere Erinnerungen für diesen Tag gelöscht. Frühere Tage lösen keine Nachhol-Erinnerung aus.",
                      icon: "calendar.badge.checkmark")
             Divider()
             HelpLine("Schlummern oder für heute beenden",
-                     "Ohne Bestätigung erinnert TherDia am selben Tag alle 30 Minuten erneut. Tippen auf die Mitteilung, Öffnen der App oder Wegwischen beenden die Erinnerungen nicht. Du kannst ausdrücklich „Für heute beenden“ wählen oder für 15, 30 oder 60 Minuten schlummern. Nach Mitternacht gibt es keine Nachhol-Erinnerung für den Vortag.",
+                     "Ohne ausdrückliche Bestätigung sind für denselben Tag weitere Mitteilungen im 30-Minuten-Abstand geplant. Das Öffnen der App oder Wegwischen beendet die Erinnerungsserie nicht. Wähle in der iOS-Benachrichtigung „Für heute beenden“ oder „In 15 Min.“, „In 30 Min.“ beziehungsweise „In 1 Std. erinnern“. Auch nach einem Schlummern wird nur am selben Kalendertag erinnert. Die tatsächliche Auslieferung hängt von iOS und den Mitteilungseinstellungen ab.",
                      icon: "clock")
             Divider()
             HelpLine("Mehrere Geräte und Hintergrundverhalten",
-                     "Die Erinnerung wird auf jedem iPhone separat eingerichtet. Hat ein anderes Gerät bereits gespeichert, erkennt dieses iPhone das erst nach einem Dropbox-Abgleich. iOS überprüft die Dropbox-Datei nicht automatisch zu jeder Alarmzeit. Der Zeitplan wird beim Start und Verwenden der App aufgefrischt.",
+                     "Die Erinnerung wird auf jedem iPhone separat eingerichtet. Hat ein anderes Gerät den Tag gespeichert, erkennt dieses iPhone das erst nach dem Dropbox-Abgleich. iOS prüft die Dropbox-Datei nicht bei jeder Benachrichtigung; dadurch sind unter Umständen noch Hinweise möglich. Die App aktualisiert geplante Erinnerungen beim Start und beim erneuten Verwenden.",
                      icon: "iphone")
         }
     }
 
     private var reportsGuide: some View {
-        SectionCard("5 · Berichte und Auswertungen") {
+        SectionCard("6 · Berichte und Auswertungen") {
             HelpLine("Berichtswesen öffnen",
                      "Unten auf „Berichte“ tippen oder im Menü „Berichtswesen und Statistiken“ auswählen.",
                      icon: "chart.pie")
@@ -161,19 +181,19 @@ struct InformationView: View {
                      icon: "calendar.badge.clock")
             Divider()
             HelpLine("Filter",
-                     "Grenze die Daten zum Beispiel nach Wohlbefinden, Notmedikation, Schule, Therapie, aggressivem Verhalten, Bildschirmzeit, Unternehmungen, Medikamenten oder Begegnungen mit bestimmten Personen ein. Aktive Filter werden mit ihrem Kategorienamen angezeigt.",
+                     "Grenze die Daten nach Tagesbefinden, Notmedikation, Schultag, Unterrichtsteilnahme, Therapie, aggressivem Verhalten und dessen Art, Bildschirmzeit, Unternehmungen, Basis-Medikament oder Begegnungen ein. Jeder Filter zeigt eine kurze Erklärung. Mehrere ausgewählte Filter gelten gleichzeitig; oben werden die Kategorien aller aktiven Filter eingeblendet.",
                      icon: "line.3.horizontal.decrease")
             Divider()
             HelpLine("Statistiken oder Tagesliste",
-                     "Wechsle zwischen Diagrammen, Prozentwerten und zeitlichem Verlauf oder der chronologischen Liste. Die Statistiken beziehen sich auf dokumentierte Tage beziehungsweise auf die jeweils erfassten Angaben – nicht automatisch auf alle Kalendertage.",
+                     "Wechsle zwischen Diagrammen, Prozentwerten und zeitlichem Verlauf oder der chronologischen Liste. Ausgewertet werden unter anderem Wohlbefinden nach Notmedikation, deren Zeitpunkt und eventuelle Müdigkeit sowie Schule, Begegnungen und Bildschirmzeit. Ein ausdrücklich nicht beantwortetes Feld wird nicht als „Nein“ gedeutet. Die Statistiken beziehen sich auf dokumentierte Tage beziehungsweise auf die jeweils erfassten Angaben – nicht automatisch auf alle Kalendertage.",
                      icon: "chart.bar")
         }
     }
 
     private var pdfGuide: some View {
-        SectionCard("6 · PDF-Berichte erstellen und weitergeben") {
+        SectionCard("7 · PDF-Berichte erstellen und weitergeben") {
             HelpLine("PDF zusammenstellen",
-                     "Öffne „Berichte → PDF zusammenstellen“. Wähle dort separat den Berichtszeitraum und die gewünschten Teile, zum Beispiel Kennzahlen, Kuchen- oder Verlaufsdiagramme, Bildschirmzeit oder Tagebucheinträge.",
+                     "Öffne „Berichte → PDF zusammenstellen“. Wähle dort separat den Berichtszeitraum und die gewünschten Teile, zum Beispiel Kennzahlen, Kuchen- oder Verlaufsdiagramme, Notmedikation mit Müdigkeit und Wohlbefinden danach, Schule, aggressives Verhalten, Bildschirmzeit oder Tagebucheinträge. Über „Alle auswählen“ oder die einzelnen Schalter bestimmst du den Umfang.",
                      icon: "doc.richtext")
             Divider()
             HelpLine("Patientenname (optional)",
@@ -197,7 +217,7 @@ struct InformationView: View {
     }
 
     private var syncGuide: some View {
-        SectionCard("7 · So funktioniert die Dropbox-Synchronisierung") {
+        SectionCard("8 · So funktioniert die Dropbox-Synchronisierung") {
             HelpLine("Wann wird synchronisiert?",
                      "Beim Öffnen nach dem Laden des lokalen Bestands, beim erneuten Aktivieren der App, bei wiederhergestellter Internetverbindung und nach dem Speichern. Unter „Einstellungen“ oder im Menü ist auch „Jetzt synchronisieren“ möglich.",
                      icon: "arrow.triangle.2.circlepath")
@@ -220,9 +240,9 @@ struct InformationView: View {
     }
 
     private var encryptionGuide: some View {
-        SectionCard("8 · Verschlüsselung einfach erklärt") {
+        SectionCard("9 · Verschlüsselung einfach erklärt") {
             HelpLine("Verschlüsselte Datenbank",
-                     "Bevor TherDia die Tagebucheinträge in Dropbox speichert, verschlüsselt die App sie mit AES-256-GCM über Apples CryptoKit. Die lokale Datenbank wird nach demselben Verfahren verschlüsselt. Die Dateien lassen sich ohne die richtige Passphrase nicht sinnvoll lesen.",
+                     "Bevor TherDia Tagebucheinträge in Dropbox speichert, verschlüsselt die App sie mit AES-256-GCM über Apples CryptoKit. Die lokale Datenbank wird nach demselben Verfahren verschlüsselt. Die Dateien lassen sich ohne die richtige Passphrase nicht sinnvoll lesen.",
                      icon: "lock.shield.fill")
             Divider()
             HelpLine("Passphrase und Schlüssel",
@@ -243,7 +263,7 @@ struct InformationView: View {
     }
 
     private var devicesGuide: some View {
-        SectionCard("9 · Mehrere Geräte einrichten") {
+        SectionCard("10 · Mehrere Geräte einrichten") {
             HelpLine("Gemeinsame Datei verwenden",
                      "Auf dem zweiten Gerät TherDia installieren, mit dem berechtigten Dropbox-Konto verbinden, „Bestehende öffnen“ wählen und denselben Dateipfad und dieselbe Passphrase eingeben. Bei verschiedenen Dropbox-Konten muss der betreffende Ordner freigegeben und erreichbar sein.",
                      icon: "iphone.and.arrow.forward")
@@ -253,13 +273,13 @@ struct InformationView: View {
                      icon: "arrow.down.app")
             Divider()
             HelpLine("Voreinstellungen",
-                     "Die Voreinstellungen für Medikamente werden pro Gerät im iOS-Schlüsselbund gespeichert. Gespeicherte Tagesangaben selbst gehören zur gemeinsamen Datenbank.",
+                     "Die Voreinstellungen für Medikamente werden pro Gerät im iOS-Schlüsselbund gespeichert. Auch die Erinnerungszeit, Töne und Schlummer-Einstellungen gelten jeweils nur für dieses iPhone. Gespeicherte Tagesangaben selbst gehören zur gemeinsamen Datenbank.",
                      icon: "gearshape")
         }
     }
 
     private var troubleshootingGuide: some View {
-        SectionCard("10 · Häufige Fragen und wichtige Hinweise") {
+        SectionCard("11 · Häufige Fragen und wichtige Hinweise") {
             HelpLine("Was heißt „Synchronisation ausstehend“?",
                      "Der Eintrag ist lokal gespeichert, aber noch nicht erfolgreich mit Dropbox abgeglichen. Prüfe die Internetverbindung und tippe bei Bedarf auf „Jetzt synchronisieren“.",
                      icon: "questionmark.circle")
