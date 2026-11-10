@@ -97,10 +97,11 @@ def newest_testable_build(api, app_id):
     if not all_access and not assigned:
         return None
 
-    # Inspect the newest 40 builds, not the entire upload history. Older
-    # binaries are not relevant to an "update available" indicator.
-    builds = api.get(f"/v1/apps/{app_id}/builds",
-                     **{"sort": "-uploadedDate", "limit": "40",
+    # Apple's /v1/apps/{id}/builds relationship endpoint rejects `sort`
+    # with 400. The top-level /v1/builds collection supports sorting with
+    # filter[app], so we can reliably inspect the 40 most recent uploads.
+    builds = api.get("/v1/builds",
+                     **{"filter[app]": app_id, "sort": "-uploadedDate", "limit": "40",
                         "fields[builds]": "version,processingState,expired,uploadedDate"}).get("data", [])
     candidates = []
     for build in builds:
