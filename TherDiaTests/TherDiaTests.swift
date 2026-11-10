@@ -257,4 +257,28 @@ final class TherDiaTests: XCTestCase {
         XCTAssertTrue(times.allSatisfy { $0 < nextDay })
     }
 
+    func testTestFlightVersionComparisonForSameMarketingVersion() {
+        XCTAssertTrue(TestFlightVersionLogic.isNewer(
+            availableVersion: "1.0.0", availableBuild: "12",
+            installedVersion: "1.0.0", installedBuild: "9"))
+        XCTAssertFalse(TestFlightVersionLogic.isNewer(
+            availableVersion: "1.0.0", availableBuild: "9",
+            installedVersion: "1.0.0", installedBuild: "9"))
+        XCTAssertFalse(TestFlightVersionLogic.isNewer(
+            availableVersion: "1.0.0", availableBuild: "8",
+            installedVersion: "1.0.0", installedBuild: "9"))
+    }
+
+    func testTestFlightVersionComparisonAcrossMarketingVersions() {
+        XCTAssertTrue(TestFlightVersionLogic.isNewer(
+            availableVersion: "1.1.0", availableBuild: "1",
+            installedVersion: "1.0.0", installedBuild: "99"))
+        XCTAssertFalse(TestFlightVersionLogic.isNewer(
+            availableVersion: "1.0.0", availableBuild: "99",
+            installedVersion: "1.1.0", installedBuild: "1"))
+        XCTAssertFalse(TestFlightVersionLogic.isNewer(
+            availableVersion: "invalid", availableBuild: "20",
+            installedVersion: "1.0.0", installedBuild: "1"))
+    }
+
 }
