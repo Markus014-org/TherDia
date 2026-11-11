@@ -168,19 +168,19 @@ final class TherDiaTests: XCTestCase {
     func testOptionalRescueTimeValidation() {
         var draft = DayDraft()
         draft.baseMedication = MedicationList(items: [Medication(name: "Basis", quantity: "5 mg")])
-        draft.rescueMedication = RescueMedication(used: true,
-            medication: Medication(name: "Notmedikament", quantity: "10 mg"), time: nil)
+        draft.rescueMedication = RescueMedicationList(items: [RescueMedication(used: true,
+            medication: Medication(name: "Notmedikament", quantity: "10 mg"), time: nil)])
         draft.normalize()
         XCTAssertNil(draft.validationError)
 
-        draft.rescueMedication.time = "08:30"
+        draft.rescueMedication.items[0].time = "08:30"
         XCTAssertNil(draft.validationError)
-        draft.rescueMedication.time = "25:70"
+        draft.rescueMedication.items[0].time = "25:70"
         XCTAssertNotNil(draft.validationError)
 
-        draft.rescueMedication.time = " "
+        draft.rescueMedication.items[0].time = " "
         draft.normalize()
-        XCTAssertNil(draft.rescueMedication.time)
+        XCTAssertNil(draft.rescueMedication.items[0].time)
         XCTAssertNil(draft.validationError)
     }
 
@@ -217,21 +217,21 @@ final class TherDiaTests: XCTestCase {
 
         for tired in [false, true] {
             var draft = DayDraft()
-            draft.rescueMedication = RescueMedication(
+            draft.rescueMedication = RescueMedicationList(items: [RescueMedication(
                 used: true,
                 medication: Medication(name: "Notfall", quantity: "5 mg"),
                 time: "10:30",
                 tirednessAfter: tired
-            )
+            )])
             let fields = try draft.serializedFields()
             let restored = try XCTUnwrap(DiaryCodec.decode(
-                RescueMedication.self, fields[.rescueMedication]))
-            XCTAssertEqual(restored.tirednessAfter, tired)
+                RescueMedicationList.self, fields[.rescueMedication]))
+            XCTAssertEqual(restored.items.first?.tirednessAfter, tired)
             XCTAssertTrue(restored.summary.contains("Müdigkeit als Folge: " + (tired ? "Ja" : "Nein")))
 
-            draft.rescueMedication.used = false
+            draft.rescueMedication.items.removeAll()
             draft.normalize()
-            XCTAssertNil(draft.rescueMedication.tirednessAfter)
+            XCTAssertFalse(draft.rescueMedication.used)
         }
     }
 
@@ -242,19 +242,85 @@ final class TherDiaTests: XCTestCase {
         XCTAssertEqual(legacy.wellbeingNotes, "")
 
         var draft = DayDraft()
-        draft.rescueMedication = RescueMedication(
+        draft.rescueMedication = RescueMedicationList(items: [RescueMedication(
             used: true, medication: Medication(name: "Notfall", quantity: "5 mg"),
             time: "10:30", wellbeingAfter: .good, wellbeingNotes: "Danach ruhiger"
-        )
+        )])
         let serialized = try draft.serializedFields()
-        let restored = try XCTUnwrap(DiaryCodec.decode(RescueMedication.self, serialized[.rescueMedication]))
-        XCTAssertEqual(restored.wellbeingAfter, .good)
-        XCTAssertEqual(restored.wellbeingNotes, "Danach ruhiger")
+        let restored = try XCTUnwrap(DiaryCodec.decode(RescueMedicationList.self, serialized[.rescueMedication]))
+        XCTAssertEqual(restored.items.first?.wellbeingAfter, .good)
+        XCTAssertEqual(restored.items.first?.wellbeingNotes, "Danach ruhiger")
         XCTAssertTrue(restored.summary.contains("Danach ruhiger"))
-        draft.rescueMedication.used = false
+        draft.rescueMedication.items.removeAll()
         draft.normalize()
-        XCTAssertNil(draft.rescueMedication.wellbeingAfter)
-        XCTAssertTrue(draft.rescueMedication.wellbeingNotes.isEmpty)
+        XCTAssertFalse(draft.rescueMedication.used)
+        XCTAssertTrue(draft.rescueMedication.items.isEmpty)
+    }
+
+    func testRescueMedicationListReadsOldAndNewFormats() throws {
+        let legacy = #"{\"used\":true,\"medication\":{\"name\":\"Notfall\",\"quantity\":\"5 mg\"},\"time\":\"10:30\"}"#
+        let old = try XCTUnwrap(DiaryCodec.decode(RescueMedicationList.self, legacy))
+        XCTAssertEqual(old.items.count, 1)
+        XCTAssertEqual(old.items[0].medication.name, "Notfall")
+        XCTAssertEqual(old.items[0].time, "10:30")
+
+        let first = RescueMedication(used: true, medication: Medication(name: "A", quantity: "5 mg"),
+                                     time: "08:30", wellbeingAfter: .fairlyGood,
+                                     wellbeingNotes: "Erste Einnahme", tirednessAfter: true)
+        let second = RescueMedication(used: true, medication: Medication(name: "B", quantity: "10 mg"),
+                                      time: "17:45", wellbeingAfter: .bad,
+                                      wellbeingNotes: "Zweite Einnahme", tirednessAfter: false)
+        let list = RescueMedicationList(items: [first, second])
+        let json = try DiaryCodec.encode(list)
+        let decoded = try XCTUnwrap(DiaryCodec.decode(RescueMedicationList.self, json))
+        XCTAssertEqual(decoded, list)
+        XCTAssertTrue(decoded.summary.contains("Erste Einnahme"))
+        XCTAssertTrue(decoded.summary.contains("Zweite Einnahme"))
+        XCTAssertEqual(try DiaryCodec.encode(RescueMedicationList(items: [first])),
+                       try DiaryCodec.encode(first))
+        XCTAssertEqual(DiaryCodec.decode(RescueMedicationList.self, #"{\"used\":false}"#)?.items.count, 0)
+    }
+
+    func testAllRescueMedicationEntriesAreValidated() {
+        var draft = DayDraft()
+        draft.baseMedication = MedicationList(items: [Medication(name: "Basis", quantity: "5 mg")])
+        draft.rescueMedication = RescueMedicationList(items: [
+            RescueMedication(used: true, medication: Medication(name: "A", quantity: "5 mg"), time: "08:30"),
+            RescueMedication(used: true, medication: Medication(name: "B", quantity: "10 mg"), time: "25:70")
+        ])
+        draft.normalize()
+        XCTAssertNotNil(draft.validationError)
+        draft.rescueMedication.items[1].time = "17:30"
+        XCTAssertNil(draft.validationError)
+        draft.rescueMedication.items[1].medication.name = " "
+        draft.normalize()
+        XCTAssertTrue(draft.validationError?.contains("Notmedikation 2") == true)
+    }
+
+    func testMultipleRescueMedicationsAppearInPDF() throws {
+        let entries = RescueMedicationList(items: [
+            RescueMedication(used: true, medication: Medication(name: "Alpha", quantity: "1 mg"),
+                             time: "08:00", wellbeingNotes: "Notiz A"),
+            RescueMedication(used: true, medication: Medication(name: "Beta", quantity: "2 mg"),
+                             time: "19:00", wellbeingNotes: "Notiz B")
+        ])
+        let record = DayRecord(fields: [
+            DiaryField.rescueMedication.rawValue: revision(try DiaryCodec.encode(entries), at: 20)
+        ])
+        let date = try XCTUnwrap(DiaryCodec.date(from: "2026-11-08"))
+        let options = PDFReportOptions(
+            patientName: "Testperson", startDate: date, endDate: date,
+            parts: [.emergency], showNames: false, showNotes: true
+        )
+        let url = try PDFReportBuilder.create(
+            days: [PDFReportDay(date: date, record: record, draft: record.draft())], options: options)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let pdf = try XCTUnwrap(PDFDocument(url: url))
+        let text = pdf.string ?? ""
+        XCTAssertTrue(text.contains("Alpha"))
+        XCTAssertTrue(text.contains("Beta"))
+        XCTAssertTrue(text.contains("Notiz A"))
+        XCTAssertTrue(text.contains("Notiz B"))
     }
 
     func testReminderSchedulesHalfHourlyAfterInitialAlertWithoutAppRunning() throws {
