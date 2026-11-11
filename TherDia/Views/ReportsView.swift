@@ -371,6 +371,71 @@ struct ReportsView: View {
         }
     }
 
+    private struct RescueNoteRow: Identifiable {
+        let id: String
+        let heading: String
+        let note: String
+    }
+
+    private var rescueNoteRows: [RescueNoteRow] {
+        var rows: [RescueNoteRow] = []
+        for day in filtered {
+            for (index, entry) in day.draft.rescueMedication.items.enumerated() where !entry.wellbeingNotes.isEmpty {
+                let label = day.date.formatted(date: .abbreviated, time: .omitted)
+                    + " · Notmedikation \(index + 1)"
+                    + (entry.time.map { " · " + $0 + " Uhr" } ?? "")
+                rows.append(RescueNoteRow(id: "\(day.key)-\(index)", heading: label,
+                                          note: entry.wellbeingNotes))
+            }
+        }
+        return rows
+    }
+
+    private var rescueNotesSection: some View {
+        SectionCard("Notmedikation – ergänzende Anmerkungen") {
+            let notes = rescueNoteRows
+            if notes.isEmpty {
+                Text("Keine Anmerkungen erfasst").foregroundStyle(.secondary)
+            } else {
+                ForEach(notes) { row in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(row.heading).font(.caption.bold())
+                        Text(row.note).font(.subheadline)
+                    }
+                }
+            }
+        }
+    }
+
+    private var rescueWellbeingDistribution: some View {
+        let items: [DistributionItem] = Wellbeing.allCases.map { quality in
+            let count = filtered.reduce(0) { total, day in
+                total + day.draft.rescueMedication.items.filter { $0.wellbeingAfter == quality }.count
+            }
+            return DistributionItem(name: quality.title, count: count,
+                                    color: TherDiaTheme.quality(quality))
+        }
+        return DistributionCard(title: "Wohlbefinden nach Notmedikation", items: items)
+    }
+
+    @ViewBuilder private var rescueMedicationDistributions: some View {
+        let baseMedicationCounts = frequencies(filtered.flatMap {
+            $0.draft.baseMedication.items.compactMap { $0.name.nilIfBlank }
+        })
+        DistributionCard(title: "Basis-Medikamente (Art)", items: coloredDistribution(baseMedicationCounts))
+        let rescueMedicationCounts = frequencies(filtered.flatMap {
+            $0.draft.rescueMedication.items.compactMap { $0.medication.name.nilIfBlank }
+        })
+        DistributionCard(title: "Notmedikamente (Art)", items: coloredDistribution(rescueMedicationCounts))
+        DistributionCard(title: "Basis-Medikation (Art und Menge)", items: coloredDistribution(
+            frequencies(filtered.flatMap { $0.draft.baseMedication.items.map(\.summary) }.filter { !$0.isEmpty })
+        ))
+        DistributionCard(title: "Notmedikation (Art und Menge)", items: coloredDistribution(
+            frequencies(filtered.flatMap { $0.draft.rescueMedication.items.map { $0.medication.summary } }
+                .filter { !$0.isEmpty })
+        ))
+    }
+
     @ViewBuilder private var statistics: some View {
         if filtered.isEmpty {
             ContentUnavailableView("Keine Daten für diese Auswahl", systemImage: "chart.pie",
@@ -420,33 +485,8 @@ struct ReportsView: View {
                                  color: TherDiaTheme.quality(quality))
             })
             DistributionCard(title: "Notmedikation", items: yesNo(rescueDays, count: count))
-            DistributionCard(title: "Wohlbefinden nach Notmedikation", items:
-                Wellbeing.allCases.map { quality in
-                    DistributionItem(name: quality.title,
-                        count: filtered.filter {
-                            $0.draft.rescueMedication.used &&
-                            $0.draft.rescueMedication.wellbeingAfter == quality
-                        }.count,
-                        color: TherDiaTheme.quality(quality))
-                }
-            )
-            SectionCard("Notmedikation – ergänzende Anmerkungen") {
-                let notes = filtered.filter {
-                    $0.draft.rescueMedication.used &&
-                    !$0.draft.rescueMedication.wellbeingNotes.isEmpty
-                }
-                if notes.isEmpty {
-                    Text("Keine Anmerkungen erfasst").foregroundStyle(.secondary)
-                } else {
-                    ForEach(notes) { day in
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(day.date.formatted(date: .abbreviated, time: .omitted))
-                                .font(.caption.bold())
-                            Text(day.draft.rescueMedication.wellbeingNotes).font(.subheadline)
-                        }
-                    }
-                }
-            }
+            rescueWellbeingDistribution
+            rescueNotesSection
             DistributionCard(title: "Aggressives Verhalten", items: [
                 DistributionItem(name: "Nein", count: recordedBehavior.count - aggressiveCount, color: .gray),
                 DistributionItem(name: "Selbstverletzend", count: recordedBehavior.filter { $0.draft.aggression.selfInjurious && !$0.draft.aggression.otherAggressive }.count, color: .orange),
@@ -502,18 +542,7 @@ struct ReportsView: View {
                     color: TherDiaTheme.quality(quality))
             })
 
-            let baseMedicationCounts = frequencies(filtered.flatMap { $0.draft.baseMedication.items.compactMap { $0.name.nilIfBlank } })
-            DistributionCard(title: "Basis-Medikamente (Art)", items: coloredDistribution(baseMedicationCounts))
-            let rescueMedicationCounts = frequencies(filtered.filter { $0.draft.rescueMedication.used }
-                .compactMap { $0.draft.rescueMedication.medication.name.nilIfBlank })
-            DistributionCard(title: "Notmedikamente (Art)", items: coloredDistribution(rescueMedicationCounts))
-            DistributionCard(title: "Basis-Medikation (Art und Menge)", items: coloredDistribution(
-                frequencies(filtered.flatMap { $0.draft.baseMedication.items.map(\.summary) }.filter { !$0.isEmpty })
-            ))
-            DistributionCard(title: "Notmedikation (Art und Menge)", items: coloredDistribution(
-                frequencies(filtered.filter { $0.draft.rescueMedication.used }
-                    .map { $0.draft.rescueMedication.medication.summary }.filter { !$0.isEmpty })
-            ))
+            rescueMedicationDistributions
             SectionCard("Häufigste Begegnungen", subtitle: "Anzahl Tage pro Person · mehrere Personen pro Tag möglich") {
                 let frequency = frequencies(filtered.flatMap { $0.draft.people })
                 if frequency.isEmpty { Text("Keine Begegnungen erfasst").foregroundStyle(.secondary) }

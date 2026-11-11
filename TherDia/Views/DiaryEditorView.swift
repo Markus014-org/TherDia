@@ -10,6 +10,7 @@ struct DiaryEditorView: View {
     @State private var draft = DayDraft()
     @State private var lastLoaded = DayDraft()
     @State private var peopleEnabled = false
+    @State private var editingRescueEntries: Set<Int> = []
     @State private var newlySynced = false
 
     var body: some View {
@@ -92,92 +93,53 @@ struct DiaryEditorView: View {
                     }
 
                     SectionCard("Notmedikation") {
-                        Toggle("Notmedikation angewendet?", isOn: $draft.rescueMedication.used)
-                        if draft.rescueMedication.used {
-                            medicationFields(name: $draft.rescueMedication.medication.name,
-                                             quantity: $draft.rescueMedication.medication.quantity)
-                            DatePicker("Uhrzeit der Einnahme",
-                                selection: Binding(
-                                    get: {
-                                        let formatter = DateFormatter()
-                                        formatter.locale = Locale(identifier: "de_DE")
-                                        formatter.dateFormat = "HH:mm"
-                                        return draft.rescueMedication.time.flatMap { formatter.date(from: $0) } ?? Date()
-                                    },
-                                    set: { chosenDate in
-                                        let formatter = DateFormatter()
-                                        formatter.locale = Locale(identifier: "de_DE")
-                                        formatter.dateFormat = "HH:mm"
-                                        draft.rescueMedication.time = formatter.string(from: chosenDate)
-                                    }
-                                ),
-                                displayedComponents: .hourAndMinute
-                            )
-                            .datePickerStyle(.wheel)
-                            .labelsHidden()
-                            .frame(height: 165)
-                            .clipped()
-                            .accessibilityLabel("Uhrzeit der Notmedikation auswählen")
-                            if draft.rescueMedication.time == nil {
-                                Button("Angezeigte Uhrzeit übernehmen") {
-                                    let formatter = DateFormatter()
-                                    formatter.dateFormat = "HH:mm"
-                                    draft.rescueMedication.time = formatter.string(from: Date())
-                                }
+                        if draft.rescueMedication.items.isEmpty {
+                            Text("Keine Notmedikation erfasst")
                                 .font(.subheadline)
-                            } else {
+                                .foregroundStyle(.secondary)
+                        }
+                        ForEach(draft.rescueMedication.items.indices, id: \.self) { index in
+                            VStack(alignment: .leading, spacing: 10) {
                                 HStack {
-                                    Text("Gespeichert: \(draft.rescueMedication.time ?? "") Uhr")
-                                        .font(.subheadline)
+                                    Text("Notmedikation \(index + 1)")
+                                        .font(.subheadline.bold())
                                     Spacer()
-                                    Button("Uhrzeit löschen") {
-                                        draft.rescueMedication.time = nil
+                                    if editingRescueEntries.contains(index) {
+                                        Button("Fertig") { editingRescueEntries.remove(index) }
+                                    } else {
+                                        Button("Bearbeiten") {
+                                            savedMessage = false
+                                            editingRescueEntries.insert(index)
+                                        }
+                                    }
+                                }
+                                if editingRescueEntries.contains(index) {
+                                    rescueMedicationEditor(index: index)
+                                    Button("Notmedikation entfernen", role: .destructive) {
+                                        removeRescueMedication(at: index)
                                     }
                                     .font(.subheadline)
+                                } else {
+                                    rescueMedicationDetails(draft.rescueMedication.items[index])
                                 }
                             }
-                            Text("Die Uhrzeit ist optional. Der Wheel-Picker speichert erst, wenn du ihn veränderst oder „Übernehmen“ wählst.")
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        Button {
+                            let index = draft.rescueMedication.items.count
+                            draft.rescueMedication.items.append(
+                                RescueMedication(used: true, medication: model.defaultRescue))
+                            editingRescueEntries.insert(index)
+                            savedMessage = false
+                        } label: {
+                            Label("Notmedikation hinzufügen", systemImage: "plus.circle.fill")
+                        }
+                        if !editingRescueEntries.isEmpty {
+                            Text("Neue und bearbeitete Angaben werden erst mit „Tag speichern“ gesichert.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Müdigkeit als Folge?")
-                                    .font(.subheadline.bold())
-                                Picker("Müdigkeit als Folge?", selection: $draft.rescueMedication.tirednessAfter) {
-                                    Text("Nicht angegeben").tag(Optional<Bool>.none)
-                                    Text("Nein").tag(Optional(false))
-                                    Text("Ja").tag(Optional(true))
-                                }
-                                .pickerStyle(.segmented)
-                                Text("Wähle Ja oder Nein, wenn die Folge der Medikation beurteilt wurde.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            VStack(alignment: .leading, spacing: 9) {
-                                Text("Wohlbefinden nach Medikation").font(.subheadline.bold())
-                                if draft.rescueMedication.wellbeingAfter == nil {
-                                    Text("Noch keine Bewertung ausgewählt")
-                                        .font(.caption).foregroundStyle(.secondary)
-                                }
-                                WellbeingControl(value: Binding(
-                                    get: { draft.rescueMedication.wellbeingAfter ?? .fairlyGood },
-                                    set: { draft.rescueMedication.wellbeingAfter = $0 }
-                                ), label: "Wohlbefinden nach Notmedikation")
-                                if draft.rescueMedication.wellbeingAfter != nil {
-                                    Button("Bewertung entfernen") {
-                                        draft.rescueMedication.wellbeingAfter = nil
-                                    }
-                                    .font(.caption)
-                                }
-                                TextField("Anmerkung nach der Medikation (optional)",
-                                          text: $draft.rescueMedication.wellbeingNotes,
-                                          axis: .vertical)
-                                    .lineLimit(2...5)
-                                    .textFieldStyle(.roundedBorder)
-                            }
-                            .padding(.top, 8)
-                            Label("Im Bericht mit blauem Punkt markiert", systemImage: "circle.fill")
-                                .foregroundStyle(.blue).font(.caption)
                         }
                     }
 
@@ -366,6 +328,113 @@ struct DiaryEditorView: View {
     }
 
     @ViewBuilder
+    private func rescueMedicationDetails(_ item: RescueMedication) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text("Art: \(item.medication.name)")
+            Text("Menge: \(item.medication.quantity)")
+            Text("Uhrzeit: \(item.time.map { $0 + " Uhr" } ?? "Nicht angegeben")")
+            Text("Müdigkeit als Folge: \(item.tirednessAfter.map { $0 ? "Ja" : "Nein" } ?? "Nicht angegeben")")
+            Text("Wohlbefinden danach: \(item.wellbeingAfter?.title ?? "Nicht angegeben")")
+            Text("Anmerkung: \(item.wellbeingNotes.isEmpty ? "Keine" : item.wellbeingNotes)")
+        }
+        .font(.subheadline)
+        .foregroundStyle(TherDiaTheme.ink)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func rescueMedicationEditor(index: Int) -> some View {
+        medicationFields(name: $draft.rescueMedication.items[index].medication.name,
+                         quantity: $draft.rescueMedication.items[index].medication.quantity)
+        DatePicker("Uhrzeit der Einnahme", selection: Binding(
+            get: { rescueTimeDate(draft.rescueMedication.items[index].time) },
+            set: { draft.rescueMedication.items[index].time = rescueTimeString($0) }
+        ), displayedComponents: .hourAndMinute)
+            .datePickerStyle(.wheel)
+            .labelsHidden()
+            .frame(height: 165)
+            .clipped()
+            .accessibilityLabel("Uhrzeit der Notmedikation \(index + 1) auswählen")
+        if draft.rescueMedication.items[index].time == nil {
+            Button("Angezeigte Uhrzeit übernehmen") {
+                draft.rescueMedication.items[index].time = rescueTimeString(Date())
+            }
+            .font(.subheadline)
+        } else {
+            HStack {
+                Text("Uhrzeit: \(draft.rescueMedication.items[index].time ?? "") Uhr")
+                    .font(.subheadline)
+                Spacer()
+                Button("Uhrzeit löschen") {
+                    draft.rescueMedication.items[index].time = nil
+                }
+                .font(.subheadline)
+            }
+        }
+        Text("Die Uhrzeit ist optional. Erst eine Auswahl oder „Übernehmen“ speichert die angezeigte Uhrzeit.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Müdigkeit als Folge?")
+                .font(.subheadline.bold())
+            Picker("Müdigkeit als Folge?", selection: $draft.rescueMedication.items[index].tirednessAfter) {
+                Text("Nicht angegeben").tag(Optional<Bool>.none)
+                Text("Nein").tag(Optional(false))
+                Text("Ja").tag(Optional(true))
+            }
+            .pickerStyle(.segmented)
+        }
+        VStack(alignment: .leading, spacing: 9) {
+            Text("Wohlbefinden nach Medikation").font(.subheadline.bold())
+            if draft.rescueMedication.items[index].wellbeingAfter == nil {
+                Text("Noch keine Bewertung ausgewählt")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            WellbeingControl(value: Binding(
+                get: { draft.rescueMedication.items[index].wellbeingAfter ?? .fairlyGood },
+                set: { draft.rescueMedication.items[index].wellbeingAfter = $0 }
+            ), label: "Wohlbefinden nach Notmedikation")
+            if draft.rescueMedication.items[index].wellbeingAfter != nil {
+                Button("Bewertung entfernen") {
+                    draft.rescueMedication.items[index].wellbeingAfter = nil
+                }
+                .font(.caption)
+            }
+            TextField("Anmerkung nach der Medikation (optional)",
+                      text: $draft.rescueMedication.items[index].wellbeingNotes,
+                      axis: .vertical)
+                .lineLimit(2...5)
+                .textFieldStyle(.roundedBorder)
+        }
+        Label("Im Bericht mit blauem Punkt markiert", systemImage: "circle.fill")
+            .foregroundStyle(.blue).font(.caption)
+    }
+
+    private func rescueTimeDate(_ time: String?) -> Date {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "de_DE")
+        formatter.dateFormat = "HH:mm"
+        return time.flatMap { formatter.date(from: $0) } ?? Date()
+    }
+
+    private func rescueTimeString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "de_DE")
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
+    }
+
+    private func removeRescueMedication(at index: Int) {
+        guard draft.rescueMedication.items.indices.contains(index) else { return }
+        draft.rescueMedication.items.remove(at: index)
+        editingRescueEntries = Set(editingRescueEntries.compactMap { current in
+            if current == index { return nil }
+            return current > index ? current - 1 : current
+        })
+        savedMessage = false
+    }
+
+    @ViewBuilder
     private func medicationFields(name: Binding<String>, quantity: Binding<String>) -> some View {
         HStack(spacing: 8) {
             TextField("Medikament", text: name)
@@ -382,6 +451,7 @@ struct DiaryEditorView: View {
         draft = newDraft
         lastLoaded = newDraft
         peopleEnabled = !newDraft.people.isEmpty
+        editingRescueEntries.removeAll()
         newlySynced = false
         savedMessage = false
     }
@@ -401,6 +471,7 @@ struct DiaryEditorView: View {
         model.save(normalized, date: selectedDate)
         guard model.errorMessage == nil else { return }
         savedMessage = true
+        editingRescueEntries.removeAll()
         draft = normalized
         lastLoaded = normalized
         newlySynced = false
