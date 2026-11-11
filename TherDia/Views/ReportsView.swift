@@ -423,26 +423,29 @@ struct ReportsView: View {
             DistributionCard(title: "Wohlbefinden nach Notmedikation", items:
                 Wellbeing.allCases.map { quality in
                     DistributionItem(name: quality.title,
-                        count: filtered.filter {
-                            $0.draft.rescueMedication.used &&
-                            $0.draft.rescueMedication.wellbeingAfter == quality
-                        }.count,
+                        count: filtered.flatMap { $0.draft.rescueMedication.items }
+                            .filter { $0.wellbeingAfter == quality }.count,
                         color: TherDiaTheme.quality(quality))
                 }
             )
             SectionCard("Notmedikation – ergänzende Anmerkungen") {
-                let notes = filtered.filter {
-                    $0.draft.rescueMedication.used &&
-                    !$0.draft.rescueMedication.wellbeingNotes.isEmpty
+                let hasNotes = filtered.contains { day in
+                    day.draft.rescueMedication.items.contains { !$0.wellbeingNotes.isEmpty }
                 }
-                if notes.isEmpty {
+                if !hasNotes {
                     Text("Keine Anmerkungen erfasst").foregroundStyle(.secondary)
                 } else {
-                    ForEach(notes) { day in
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(day.date.formatted(date: .abbreviated, time: .omitted))
-                                .font(.caption.bold())
-                            Text(day.draft.rescueMedication.wellbeingNotes).font(.subheadline)
+                    ForEach(filtered) { day in
+                        ForEach(Array(day.draft.rescueMedication.items.enumerated()), id: \.offset) { index, entry in
+                            if !entry.wellbeingNotes.isEmpty {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(day.date.formatted(date: .abbreviated, time: .omitted) +
+                                         " · Notmedikation \(index + 1)" +
+                                         (entry.time.map { " · " + $0 + " Uhr" } ?? ""))
+                                        .font(.caption.bold())
+                                    Text(entry.wellbeingNotes).font(.subheadline)
+                                }
+                            }
                         }
                     }
                 }
@@ -504,15 +507,17 @@ struct ReportsView: View {
 
             let baseMedicationCounts = frequencies(filtered.flatMap { $0.draft.baseMedication.items.compactMap { $0.name.nilIfBlank } })
             DistributionCard(title: "Basis-Medikamente (Art)", items: coloredDistribution(baseMedicationCounts))
-            let rescueMedicationCounts = frequencies(filtered.filter { $0.draft.rescueMedication.used }
-                .compactMap { $0.draft.rescueMedication.medication.name.nilIfBlank })
+            let rescueMedicationCounts = frequencies(filtered.flatMap {
+                $0.draft.rescueMedication.items.compactMap { $0.medication.name.nilIfBlank }
+            })
             DistributionCard(title: "Notmedikamente (Art)", items: coloredDistribution(rescueMedicationCounts))
             DistributionCard(title: "Basis-Medikation (Art und Menge)", items: coloredDistribution(
                 frequencies(filtered.flatMap { $0.draft.baseMedication.items.map(\.summary) }.filter { !$0.isEmpty })
             ))
             DistributionCard(title: "Notmedikation (Art und Menge)", items: coloredDistribution(
-                frequencies(filtered.filter { $0.draft.rescueMedication.used }
-                    .map { $0.draft.rescueMedication.medication.summary }.filter { !$0.isEmpty })
+                frequencies(filtered.flatMap {
+                    $0.draft.rescueMedication.items.map { $0.medication.summary }
+                }.filter { !$0.isEmpty })
             ))
             SectionCard("Häufigste Begegnungen", subtitle: "Anzahl Tage pro Person · mehrere Personen pro Tag möglich") {
                 let frequency = frequencies(filtered.flatMap { $0.draft.people })
