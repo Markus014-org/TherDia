@@ -371,33 +371,40 @@ struct ReportsView: View {
         }
     }
 
-    // Keep the complex dose list out of the main statistics ViewBuilder,
-    // otherwise Swift's type-checker can time out on the whole dashboard.
-    @ViewBuilder private var rescueNotesSection: some View {
-    SectionCard("Notmedikation – ergänzende Anmerkungen") {
-        let hasNotes = filtered.contains { day in
-            day.draft.rescueMedication.items.contains { !$0.wellbeingNotes.isEmpty }
+    private struct RescueNoteRow: Identifiable {
+        let id: String
+        let heading: String
+        let note: String
+    }
+
+    private var rescueNoteRows: [RescueNoteRow] {
+        var rows: [RescueNoteRow] = []
+        for day in filtered {
+            for (index, entry) in day.draft.rescueMedication.items.enumerated() where !entry.wellbeingNotes.isEmpty {
+                let label = day.date.formatted(date: .abbreviated, time: .omitted)
+                    + " · Notmedikation \(index + 1)"
+                    + (entry.time.map { " · " + $0 + " Uhr" } ?? "")
+                rows.append(RescueNoteRow(id: "\(day.key)-\(index)", heading: label,
+                                          note: entry.wellbeingNotes))
+            }
         }
-        if !hasNotes {
-            Text("Keine Anmerkungen erfasst").foregroundStyle(.secondary)
-        } else {
-            ForEach(filtered) { day in
-                ForEach(day.draft.rescueMedication.items.indices, id: \.self) { index in
-                    let entry = day.draft.rescueMedication.items[index]
-                    if !entry.wellbeingNotes.isEmpty {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(day.date.formatted(date: .abbreviated, time: .omitted) +
-                                 " · Notmedikation \(index + 1)" +
-                                 (entry.time.map { " · " + $0 + " Uhr" } ?? ""))
-                                .font(.caption.bold())
-                            Text(entry.wellbeingNotes).font(.subheadline)
-                        }
+        return rows
+    }
+
+    private var rescueNotesSection: some View {
+        SectionCard("Notmedikation – ergänzende Anmerkungen") {
+            let notes = rescueNoteRows
+            if notes.isEmpty {
+                Text("Keine Anmerkungen erfasst").foregroundStyle(.secondary)
+            } else {
+                ForEach(notes) { row in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(row.heading).font(.caption.bold())
+                        Text(row.note).font(.subheadline)
                     }
                 }
             }
         }
-    }
-
     }
 
     private var rescueWellbeingDistribution: some View {
