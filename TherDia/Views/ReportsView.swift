@@ -371,6 +371,35 @@ struct ReportsView: View {
         }
     }
 
+    // Keep the complex dose list out of the main statistics ViewBuilder,
+    // otherwise Swift's type-checker can time out on the whole dashboard.
+    @ViewBuilder private var rescueNotesSection: some View {
+    SectionCard("Notmedikation – ergänzende Anmerkungen") {
+        let hasNotes = filtered.contains { day in
+            day.draft.rescueMedication.items.contains { !$0.wellbeingNotes.isEmpty }
+        }
+        if !hasNotes {
+            Text("Keine Anmerkungen erfasst").foregroundStyle(.secondary)
+        } else {
+            ForEach(filtered) { day in
+                ForEach(day.draft.rescueMedication.items.indices, id: \.self) { index in
+                    let entry = day.draft.rescueMedication.items[index]
+                    if !entry.wellbeingNotes.isEmpty {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(day.date.formatted(date: .abbreviated, time: .omitted) +
+                                 " · Notmedikation \(index + 1)" +
+                                 (entry.time.map { " · " + $0 + " Uhr" } ?? ""))
+                                .font(.caption.bold())
+                            Text(entry.wellbeingNotes).font(.subheadline)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    }
+
     @ViewBuilder private var statistics: some View {
         if filtered.isEmpty {
             ContentUnavailableView("Keine Daten für diese Auswahl", systemImage: "chart.pie",
@@ -428,29 +457,7 @@ struct ReportsView: View {
                         color: TherDiaTheme.quality(quality))
                 }
             )
-            SectionCard("Notmedikation – ergänzende Anmerkungen") {
-                let hasNotes = filtered.contains { day in
-                    day.draft.rescueMedication.items.contains { !$0.wellbeingNotes.isEmpty }
-                }
-                if !hasNotes {
-                    Text("Keine Anmerkungen erfasst").foregroundStyle(.secondary)
-                } else {
-                    ForEach(filtered) { day in
-                        ForEach(day.draft.rescueMedication.items.indices, id: \.self) { index in
-                            let entry = day.draft.rescueMedication.items[index]
-                            if !entry.wellbeingNotes.isEmpty {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(day.date.formatted(date: .abbreviated, time: .omitted) +
-                                         " · Notmedikation \(index + 1)" +
-                                         (entry.time.map { " · " + $0 + " Uhr" } ?? ""))
-                                        .font(.caption.bold())
-                                    Text(entry.wellbeingNotes).font(.subheadline)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            rescueNotesSection
             DistributionCard(title: "Aggressives Verhalten", items: [
                 DistributionItem(name: "Nein", count: recordedBehavior.count - aggressiveCount, color: .gray),
                 DistributionItem(name: "Selbstverletzend", count: recordedBehavior.filter { $0.draft.aggression.selfInjurious && !$0.draft.aggression.otherAggressive }.count, color: .orange),
