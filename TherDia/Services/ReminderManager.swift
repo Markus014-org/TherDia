@@ -33,6 +33,12 @@ enum ReminderSchedule {
     }
 }
 
+/// Identifies the reminder that was explicitly opened from a notification.
+struct ReminderPrompt: Identifiable, Equatable {
+    let dayKey: String
+    var id: String { dayKey }
+}
+
 @MainActor
 final class ReminderManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = ReminderManager()
@@ -50,6 +56,7 @@ final class ReminderManager: NSObject, ObservableObject, UNUserNotificationCente
 
     @Published private(set) var settings: ReminderSettings
     @Published private(set) var authorizationMessage = "Noch nicht überprüft"
+    @Published private(set) var activeReminderPrompt: ReminderPrompt?
 
     private var dismissedDays: Set<String>
     private var recordedDays: Set<String>
@@ -95,6 +102,7 @@ final class ReminderManager: NSObject, ObservableObject, UNUserNotificationCente
             }
         }
         settings = updated
+        if !updated.enabled { activeReminderPrompt = nil }
         if let bytes = try? JSONEncoder().encode(updated) {
             defaults.set(bytes, forKey: Self.settingsKey)
         }
@@ -109,11 +117,17 @@ final class ReminderManager: NSObject, ObservableObject, UNUserNotificationCente
             record.fields.isEmpty ? nil : key
         })
         defaults.set(Array(recordedDays), forKey: Self.recordedKey)
+        if let prompt = activeReminderPrompt, recordedDays.contains(prompt.dayKey) {
+            activeReminderPrompt = nil
+        }
         await refresh()
     }
 
     func markSaved(date: Date) async {
         let dayKey = DiaryCodec.dateKey(date)
+        if activeReminderPrompt?.dayKey == dayKey {
+            activeReminderPrompt = nil
+        }
         recordedDays.insert(dayKey)
         snoozes.removeValue(forKey: dayKey)
         defaults.set(Array(recordedDays), forKey: Self.recordedKey)
@@ -126,6 +140,25 @@ final class ReminderManager: NSObject, ObservableObject, UNUserNotificationCente
                 .map { $0.request.identifier }
         )
         await refresh()
+    }
+
+    /// Dismissing the in-app sheet does not dismiss or snooze the alarm.
+    /// The default 30-minute repeat schedule remains active.
+    func closeReminderPrompt() {
+        activeReminderPrompt = nil
+    }
+
+    /// Called when an in-app choice is explicitly made. Unlike merely opening
+    /// TherDia, this modifies the day's scheduled reminder notifications.
+    func selectReminderAction(_ actionID: String, for dayKey: String) async {
+        guard activeReminderPrompt?.dayKey == dayKey else { return }
+        guard shouldNotify(dayKey: dayKey) else {
+            activeReminderPrompt = nil
+            return
+        }
+        // Dismiss first so it cannot race an incoming foreground refresh.
+        activeReminderPrompt = nil
+        await handle(actionID: actionID, dayKey: dayKey)
     }
 
     func refresh() async {
@@ -290,7 +323,13 @@ final class ReminderManager: NSObject, ObservableObject, UNUserNotificationCente
         // further reminders. Only an explicit Done action can do that.
         guard shouldNotify(dayKey: dayKey) else { return }
         switch actionID {
+        case UNNotificationDefaultActionIdentifier:
+            // The user tapped the lock-screen banner itself, rather than an
+            // expanded action. iOS launches TherDia; show choices *inside*
+            // the app. Do not change the reminder schedule on this tap.
+            activeReminderPrompt = ReminderPrompt(dayKey: dayKey)
         case Self.actionDone:
+            activeReminderPrompt = nil
             dismissedDays.insert(dayKey)
             snoozes.removeValue(forKey: dayKey)
             defaults.set(Array(dismissedDays), forKey: Self.dismissedKey)
@@ -302,6 +341,7 @@ final class ReminderManager: NSObject, ObservableObject, UNUserNotificationCente
             )
             await refresh()
         case Self.action15, Self.action30, Self.action60:
+            activeReminderPrompt = nil
             let minutes = actionID == Self.action15 ? 15 : actionID == Self.action30 ? 30 : 60
             guard let target = Calendar.current.date(byAdding: .minute, value: minutes, to: .now),
                   DiaryCodec.dateKey(target) == dayKey else {
@@ -312,7 +352,7 @@ final class ReminderManager: NSObject, ObservableObject, UNUserNotificationCente
             saveSnoozes()
             await refresh()
         default:
-            // Default tap and banner dismissal leave the reminder active.
+            // Swiping away the notification is not acknowledgement.
             return
         }
     }
