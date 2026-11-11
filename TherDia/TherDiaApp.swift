@@ -2,8 +2,22 @@ import SwiftUI
 
 enum MainTab: Hashable { case diary, reports, settings, menu }
 
+/// Register the UNUserNotificationCenter delegate as soon as UIKit launches
+/// the app, including cold starts initiated from a lock-screen notification.
+@MainActor
+final class TherDiaNotificationAppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        _ = ReminderManager.shared
+        return true
+    }
+}
+
 @main
 struct TherDiaApp: App {
+    @UIApplicationDelegateAdaptor(TherDiaNotificationAppDelegate.self) private var notificationAppDelegate
     @StateObject private var model = AppModel()
     @StateObject private var reminders = ReminderManager.shared
     @StateObject private var testFlightVersion = TestFlightVersionChecker()
