@@ -436,7 +436,8 @@ struct ReportsView: View {
                     Text("Keine Anmerkungen erfasst").foregroundStyle(.secondary)
                 } else {
                     ForEach(filtered) { day in
-                        ForEach(Array(day.draft.rescueMedication.items.enumerated()), id: \.offset) { index, entry in
+                        ForEach(day.draft.rescueMedication.items.indices, id: \.self) { index in
+                            let entry = day.draft.rescueMedication.items[index]
                             if !entry.wellbeingNotes.isEmpty {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(day.date.formatted(date: .abbreviated, time: .omitted) +
