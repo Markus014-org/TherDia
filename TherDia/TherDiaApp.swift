@@ -57,6 +57,15 @@ struct TherDiaApp: App {
             .onReceive(model.connectivity.$isConnected) { connected in
                 if connected { Task { await model.sync() } }
             }
+            .sheet(item: Binding(
+                get: { reminders.activeReminderPrompt },
+                set: { if $0 == nil { reminders.closeReminderPrompt() } }
+            )) { prompt in
+                ReminderDecisionView(dayKey: prompt.dayKey) {
+                    selectedDate = .now
+                    selectedTab = .diary
+                }
+            }
             .sheet(isPresented: Binding(
                 get: { !model.conflicts.isEmpty },
                 set: { _ in } // Cannot dismiss until the user makes an explicit choice.
