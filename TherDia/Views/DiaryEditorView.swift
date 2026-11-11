@@ -10,8 +10,6 @@ struct DiaryEditorView: View {
     @State private var draft = DayDraft()
     @State private var lastLoaded = DayDraft()
     @State private var peopleEnabled = false
-    @State private var showReview = false
-    @State private var changes: [FieldChange] = []
     @State private var newlySynced = false
 
     var body: some View {
@@ -364,39 +362,6 @@ struct DiaryEditorView: View {
                 if draft == lastLoaded { loadDay() }
                 else { newlySynced = true }
             }
-            .sheet(isPresented: $showReview) {
-                NavigationStack {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 13) {
-                            Text("Folgende gespeicherte Werte werden verändert. Bitte alte und neue Angaben vergleichen.")
-                                .font(.subheadline).foregroundStyle(.secondary)
-                            ForEach(changes.filter { $0.oldValue != nil }) { change in
-                                SectionCard(change.field.title) {
-                                    Text("Bisher").font(.caption.bold()).foregroundStyle(.secondary)
-                                    Text(FieldDescription.describe(change.field, json: change.oldValue!))
-                                    Divider()
-                                    Text("Neu").font(.caption.bold()).foregroundStyle(TherDiaTheme.accent)
-                                    Text(FieldDescription.describe(change.field, json: change.newValue))
-                                }
-                            }
-                        }.padding(16)
-                    }
-                    .background(TherDiaTheme.canvas)
-                    .navigationTitle("Änderungen prüfen")
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { showReview = false } }
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Überschreiben erlauben") {
-                                showReview = false
-                                model.save(draft, date: selectedDate)
-                                savedMessage = model.errorMessage == nil
-                                lastLoaded = draft
-                                newlySynced = false
-                            }.bold()
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -430,16 +395,14 @@ struct DiaryEditorView: View {
         var normalized = draft
         normalized.normalize()
         if let error = normalized.validationError { model.errorMessage = error; return }
-        do {
-            changes = try model.changes(for: normalized, date: selectedDate)
-            if changes.contains(where: { $0.oldValue != nil }) { showReview = true }
-            else {
-                model.save(normalized, date: selectedDate)
-                savedMessage = model.errorMessage == nil
-                draft = normalized
-                lastLoaded = normalized
-                newlySynced = false
-            }
-        } catch { model.errorMessage = error.localizedDescription }
+        // Änderungen werden lokal verschlüsselt gespeichert. Falls ein anderes Gerät
+        // denselben Wert abweichend gespeichert hat, verlangt die Dropbox-Synchronisation
+        // genau eine ausdrückliche Entscheidung in ConflictReviewView.
+        model.save(normalized, date: selectedDate)
+        guard model.errorMessage == nil else { return }
+        savedMessage = true
+        draft = normalized
+        lastLoaded = normalized
+        newlySynced = false
     }
 }
