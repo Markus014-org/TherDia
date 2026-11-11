@@ -161,7 +161,7 @@ struct InformationView: View {
                      icon: "calendar.badge.checkmark")
             Divider()
             HelpLine("Schlummern oder für heute beenden",
-                     "Ohne ausdrückliche Bestätigung sind für denselben Tag weitere Mitteilungen im 30-Minuten-Abstand geplant. Das Öffnen der App oder Wegwischen beendet die Erinnerungsserie nicht. Wähle in der iOS-Benachrichtigung „Für heute beenden“ oder „In 15 Min.“, „In 30 Min.“ beziehungsweise „In 1 Std. erinnern“. Auch nach einem Schlummern wird nur am selben Kalendertag erinnert. Die tatsächliche Auslieferung hängt von iOS und den Mitteilungseinstellungen ab.",
+                     "Ohne ausdrückliche Bestätigung sind für denselben Tag weitere Mitteilungen im 30-Minuten-Abstand geplant. Das Öffnen der App oder Wegwischen beendet die Erinnerungsserie nicht. Beim Antippen der Sperrbildschirm-Benachrichtigung öffnet sich TherDia mit einem eigenen Auswahlfenster: „Jetzt Tagebuch eintragen“, „In 15 Minuten“, „In 30 Minuten“, „In 1 Stunde“ oder „Für heute beenden“. Dieselben Schlummer- und Ende-Aktionen findest du auch beim Aufklappen der iOS-Benachrichtigung. Schließt du das Fenster ohne Auswahl, laufen die automatischen Erinnerungen weiter. Auch nach einem Schlummern wird nur am selben Kalendertag erinnert. Die tatsächliche Auslieferung hängt von iOS und den Mitteilungseinstellungen ab.",
                      icon: "clock")
             Divider()
             HelpLine("Mehrere Geräte und Hintergrundverhalten",
