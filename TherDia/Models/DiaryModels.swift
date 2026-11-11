@@ -121,7 +121,46 @@ struct RescueMedication: Codable, Equatable {
     }
 }
 
-/// Kept separate from legacy 'injuries' records so earlier injury notes are never
+/// Accepts legacy single-entry JSON while supporting multiple doses per day.
+// Zero/one entry continue to encode in the original shape for compatibility.
+struct RescueMedicationList: Codable, Equatable {
+    var items: [RescueMedication] = []
+
+    init(items: [RescueMedication] = []) { self.items = items }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let multiple = try? container.decode([RescueMedication].self) {
+            items = multiple.filter(\.used)
+        } else {
+            let legacy = try container.decode(RescueMedication.self)
+            items = legacy.used ? [legacy] : []
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        if items.isEmpty {
+            try container.encode(RescueMedication())
+        } else if items.count == 1 {
+            try container.encode(items[0])
+        } else {
+            try container.encode(items)
+        }
+    }
+
+    var used: Bool { !items.isEmpty }
+
+    var summary: String {
+        guard used else { return "Nein" }
+        if items.count == 1 { return items[0].summary }
+        return items.enumerated()
+            .map { index, item in "\(index + 1). \(item.summary)" }
+            .joined(separator: " | ")
+    }
+}
+
+// Kept separate from legacy 'injuries' records so earlier injury notes are never
 /// silently reinterpreted as aggressive behavior.
 struct AggressiveBehavior: Codable, Equatable {
     var happened = false
@@ -203,7 +242,7 @@ struct Outing: Codable, Equatable {
 struct DayDraft: Equatable {
     var wellbeing: Wellbeing = .fairlyGood
     var baseMedication = MedicationList()
-    var rescueMedication = RescueMedication()
+    var rescueMedication = RescueMedicationList()
     var injuries = Injuries()
     var school = School()
     var therapy = Therapy()
@@ -218,19 +257,17 @@ struct DayDraft: Equatable {
             Medication(name: $0.name.trimmingCharacters(in: .whitespacesAndNewlines),
                        quantity: $0.quantity.trimmingCharacters(in: .whitespacesAndNewlines))
         }.filter { !$0.name.isEmpty || !$0.quantity.isEmpty }
-        rescueMedication.medication.name = rescueMedication.medication.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        rescueMedication.medication.quantity = rescueMedication.medication.quantity.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let enteredTime = rescueMedication.time {
-            let cleaned = enteredTime.trimmingCharacters(in: .whitespacesAndNewlines)
-            rescueMedication.time = cleaned.isEmpty ? nil : cleaned
-        }
-        rescueMedication.wellbeingNotes = rescueMedication.wellbeingNotes.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !rescueMedication.used {
-            rescueMedication.medication = Medication()
-            rescueMedication.time = nil
-            rescueMedication.tirednessAfter = nil
-            rescueMedication.wellbeingAfter = nil
-            rescueMedication.wellbeingNotes = ""
+        rescueMedication.items = rescueMedication.items.map { item in
+            var entry = item
+            entry.used = true
+            entry.medication.name = entry.medication.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            entry.medication.quantity = entry.medication.quantity.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let enteredTime = entry.time {
+                let cleaned = enteredTime.trimmingCharacters(in: .whitespacesAndNewlines)
+                entry.time = cleaned.isEmpty ? nil : cleaned
+            }
+            entry.wellbeingNotes = entry.wellbeingNotes.trimmingCharacters(in: .whitespacesAndNewlines)
+            return entry
         }
         injuries.details = injuries.details.trimmingCharacters(in: .whitespacesAndNewlines)
         if !injuries.happened { injuries.details = "" }
@@ -265,18 +302,20 @@ struct DayDraft: Equatable {
         if school.hasSchool && school.attended && !school.online && !school.inPerson {
             return "Bitte bei einem Schultag mindestens Online oder Präsenz auswählen."
         }
-        if rescueMedication.used && (rescueMedication.medication.name.isEmpty || rescueMedication.medication.quantity.isEmpty) {
-            return "Bitte Art und Menge der Notmedikation angeben."
-        }
-        if rescueMedication.used, let entered = rescueMedication.time {
-            let parts = entered.split(separator: ":", omittingEmptySubsequences: false)
-            guard parts.count == 2,
-                  parts[0].count == 2, parts[1].count == 2,
-                  parts[0].allSatisfy({ $0.isASCII && $0.isNumber }),
-                  parts[1].allSatisfy({ $0.isASCII && $0.isNumber }),
-                  let hour = Int(parts[0]), let minute = Int(parts[1]),
-                  (0...23).contains(hour), (0...59).contains(minute) else {
-                return "Bitte die Uhrzeit der Notmedikation als HH:mm eingeben (z. B. 08:30) oder das Feld leer lassen."
+        for (index, entry) in rescueMedication.items.enumerated() {
+            if entry.medication.name.isEmpty || entry.medication.quantity.isEmpty {
+                return "Bitte bei Notmedikation \(index + 1) Art und Menge angeben."
+            }
+            if let entered = entry.time {
+                let parts = entered.split(separator: ":", omittingEmptySubsequences: false)
+                guard parts.count == 2,
+                      parts[0].count == 2, parts[1].count == 2,
+                      parts[0].allSatisfy({ $0.isASCII && $0.isNumber }),
+                      parts[1].allSatisfy({ $0.isASCII && $0.isNumber }),
+                      let hour = Int(parts[0]), let minute = Int(parts[1]),
+                      (0...23).contains(hour), (0...59).contains(minute) else {
+                    return "Bitte bei Notmedikation \(index + 1) die Uhrzeit als HH:mm angeben (z. B. 08:30) oder leer lassen."
+                }
             }
         }
         if aggression.happened && !aggression.selfInjurious && !aggression.otherAggressive {
@@ -351,8 +390,7 @@ extension DayRecord {
         var draft = DayDraft()
         draft.wellbeing = DiaryCodec.decode(Wellbeing.self, field(.wellbeing)?.value) ?? .fairlyGood
         draft.baseMedication = DiaryCodec.decode(MedicationList.self, field(.baseMedication)?.value) ?? fallbackBase
-        draft.rescueMedication = DiaryCodec.decode(RescueMedication.self, field(.rescueMedication)?.value) ?? RescueMedication(used: false, medication: fallbackRescue)
-        if !draft.rescueMedication.used { draft.rescueMedication.medication = fallbackRescue }
+        draft.rescueMedication = DiaryCodec.decode(RescueMedicationList.self, field(.rescueMedication)?.value) ?? RescueMedicationList()
         draft.injuries = DiaryCodec.decode(Injuries.self, field(.injuries)?.value) ?? Injuries()
         draft.school = DiaryCodec.decode(School.self, field(.school)?.value) ?? School()
         draft.therapy = DiaryCodec.decode(Therapy.self, field(.therapy)?.value) ?? Therapy()
@@ -391,7 +429,7 @@ enum FieldDescription {
         case .baseMedication:
             return DiaryCodec.decode(MedicationList.self, json)?.summary.nilIfEmpty ?? "Keine Angabe"
         case .rescueMedication:
-            guard let value = DiaryCodec.decode(RescueMedication.self, json) else { return "Unbekannt" }
+            guard let value = DiaryCodec.decode(RescueMedicationList.self, json) else { return "Unbekannt" }
             return value.used ? "Ja · \(value.summary)" : "Nein"
         case .injuries:
             guard let value = DiaryCodec.decode(Injuries.self, json) else { return "Unbekannt" }
