@@ -258,7 +258,7 @@ final class TherDiaTests: XCTestCase {
     }
 
     func testRescueMedicationListReadsOldAndNewFormats() throws {
-        let legacy = #"{\"used\":true,\"medication\":{\"name\":\"Notfall\",\"quantity\":\"5 mg\"},\"time\":\"10:30\"}"#
+        let legacy = #"{"used":true,"medication":{"name":"Notfall","quantity":"5 mg"},"time":"10:30"}"#
         let old = try XCTUnwrap(DiaryCodec.decode(RescueMedicationList.self, legacy))
         XCTAssertEqual(old.items.count, 1)
         XCTAssertEqual(old.items[0].medication.name, "Notfall")
@@ -278,7 +278,7 @@ final class TherDiaTests: XCTestCase {
         XCTAssertTrue(decoded.summary.contains("Zweite Einnahme"))
         XCTAssertEqual(try DiaryCodec.encode(RescueMedicationList(items: [first])),
                        try DiaryCodec.encode(first))
-        XCTAssertEqual(DiaryCodec.decode(RescueMedicationList.self, #"{\"used\":false}"#)?.items.count, 0)
+        XCTAssertEqual(DiaryCodec.decode(RescueMedicationList.self, #"{"used":false}"#)?.items.count, 0)
     }
 
     func testAllRescueMedicationEntriesAreValidated() {
