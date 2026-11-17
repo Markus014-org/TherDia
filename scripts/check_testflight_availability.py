@@ -33,13 +33,30 @@ class ASC:
             "Authorization": "Bearer " + self.token,
             "Accept": "application/json",
         })
-        try:
-            with urllib.request.urlopen(request, timeout=25) as response:
-                return json.load(response)
-        except urllib.error.HTTPError as exc:
-            raise RuntimeError(
-                f"Apple App Store Connect API HTTP {exc.code}: {endpoint}"
-            ) from None
+        # Retry transient read/connect timeouts, but not HTTP or other API errors.
+        for attempt in range(1, 4):
+            try:
+                with urllib.request.urlopen(request, timeout=25) as response:
+                    return json.load(response)
+            except urllib.error.HTTPError as exc:
+                raise RuntimeError(
+                    f"Apple App Store Connect API HTTP {exc.code}: {endpoint}"
+                ) from None
+            except (TimeoutError, urllib.error.URLError) as exc:
+                # urllib may wrap socket timeouts in URLError.
+                if isinstance(exc, urllib.error.URLError) and not isinstance(exc.reason, TimeoutError):
+                    raise
+                if attempt == 3:
+                    raise RuntimeError(
+                        f"Apple App Store Connect API timed out after 3 attempts: {endpoint}"
+                    ) from exc
+                delay = 2 ** attempt  # 2s, then 4s
+                print(
+                    f"Apple App Store Connect API timed out ({attempt}/3); "
+                    f"retrying in {delay}s: {endpoint}",
+                    file=sys.stderr,
+                )
+                time.sleep(delay)
 
     def list(self, endpoint, **params):
         response = self.get(endpoint, **params)
